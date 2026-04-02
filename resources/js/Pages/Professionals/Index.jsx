@@ -44,7 +44,13 @@ export default function Index({ professionals }) {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-on-surface text-lg group-hover:text-primary transition-colors">{professional.name}</h3>
-                                        <p className="text-sm text-on-surface-variant">{professional.specialty}</p>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {professional.specialties.map((s) => (
+                                                <span key={s.id} className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                    {s.name}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex gap-1">

@@ -5,15 +5,22 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 
-export default function Create() {
+export default function Create({ specialties }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
-        specialty: '',
         registration_number: '',
         email: '',
         phone: '',
         color: '#466250',
+        specialties: [],
     });
+
+    const toggleSpecialty = (id) => {
+        const newSpecialties = data.specialties.includes(id)
+            ? data.specialties.filter((s) => s !== id)
+            : [...data.specialties, id];
+        setData('specialties', newSpecialties);
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -60,17 +67,25 @@ export default function Create() {
                             <InputError message={errors.name} className="mt-2" />
                         </div>
 
-                        <div>
-                            <InputLabel htmlFor="specialty" value="Especialidade" />
-                            <TextInput
-                                id="specialty"
-                                name="specialty"
-                                value={data.specialty}
-                                className="mt-1 block w-full"
-                                onChange={(e) => setData('specialty', e.target.value)}
-                                required
-                            />
-                            <InputError message={errors.specialty} className="mt-2" />
+                        <div className="md:col-span-2">
+                            <InputLabel value="Especialidades" />
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                                {specialties.map((specialty) => (
+                                    <label 
+                                        key={specialty.id} 
+                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${data.specialties.includes(specialty.id) ? 'bg-primary/5 border-primary text-primary font-bold' : 'bg-surface-container-lowest border-outline-variant hover:border-primary/50'}`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-primary shadow-sm focus:ring-primary h-5 w-5"
+                                            checked={data.specialties.includes(specialty.id)}
+                                            onChange={() => toggleSpecialty(specialty.id)}
+                                        />
+                                        <span className="text-sm">{specialty.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            <InputError message={errors.specialties} className="mt-2" />
                         </div>
 
                         <div>

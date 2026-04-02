@@ -4,166 +4,171 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import Checkbox from '@/Components/Checkbox';
+import ProfessionalHoursForm from '@/Components/ProfessionalHoursForm';
 
 export default function Create({ specialties }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
         name: '',
         registration_number: '',
         email: '',
         phone: '',
         color: '#466250',
         specialties: [],
+        hours: [
+            { day_of_week: 'Segunda-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
+            { day_of_week: 'Terça-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
+            { day_of_week: 'Quarta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
+            { day_of_week: 'Quinta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
+            { day_of_week: 'Sexta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
+            { day_of_week: 'Sábado', is_open: false, open_time: '08:00', close_time: '12:00' },
+            { day_of_week: 'Domingo', is_open: false, open_time: '08:00', close_time: '12:00' },
+        ]
     });
-
-    const toggleSpecialty = (id) => {
-        const newSpecialties = data.specialties.includes(id)
-            ? data.specialties.filter((s) => s !== id)
-            : [...data.specialties, id];
-        setData('specialties', newSpecialties);
-    };
 
     const submit = (e) => {
         e.preventDefault();
         post(route('professionals.store'));
     };
 
-    const colorOptions = [
-        { name: 'Verde Clínica', value: '#466250' },
-        { name: 'Sálvia', value: '#789682' },
-        { name: 'Ocre', value: '#B4844D' },
-        { name: 'Terracota', value: '#A65D46' },
-        { name: 'Slate', value: '#475569' },
-        { name: 'Indigo', value: '#4F46E5' },
-    ];
-
     return (
         <AuthenticatedLayout>
-            <Head title="Novo Profissional" />
+            <Head title="Cadastrar Profissional" />
 
-            <section className="mb-8">
-                <Link href={route('professionals.index')} className="text-sm text-on-surface-variant hover:text-primary flex items-center gap-1 mb-4">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-[#466250]">Cadastrar Profissional</h1>
+                    <p className="text-stone-500 text-sm">Adicione um novo profissional à equipe da clínica.</p>
+                </div>
+                <Link href={route('professionals.index')} className="text-stone-500 hover:text-stone-800 transition-colors uppercase text-xs font-bold tracking-widest flex items-center gap-2">
                     <span className="material-symbols-outlined text-sm">arrow_back</span>
-                    Voltar para lista
+                    Voltar
                 </Link>
-                <h1 className="text-3xl font-extrabold tracking-tight text-primary">Novo Profissional</h1>
-                <p className="text-on-surface-variant">Cadastre um novo integrante para a equipe.</p>
-            </section>
+            </div>
 
-            <div className="max-w-3xl bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-outline-variant/30">
-                <form onSubmit={submit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-2">
-                            <InputLabel htmlFor="name" value="Nome Completo" />
-                            <TextInput
-                                id="name"
-                                name="name"
-                                value={data.name}
-                                className="mt-1 block w-full"
-                                autoComplete="name"
-                                isFocused={true}
-                                onChange={(e) => setData('name', e.target.value)}
-                                required
-                            />
-                            <InputError message={errors.name} className="mt-2" />
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <InputLabel value="Especialidades" />
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                                {specialties.map((specialty) => (
-                                    <label 
-                                        key={specialty.id} 
-                                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${data.specialties.includes(specialty.id) ? 'bg-primary/5 border-primary text-primary font-bold' : 'bg-surface-container-lowest border-outline-variant hover:border-primary/50'}`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 text-primary shadow-sm focus:ring-primary h-5 w-5"
-                                            checked={data.specialties.includes(specialty.id)}
-                                            onChange={() => toggleSpecialty(specialty.id)}
-                                        />
-                                        <span className="text-sm">{specialty.name}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            <InputError message={errors.specialties} className="mt-2" />
-                        </div>
-
-                        <div>
-                            <InputLabel htmlFor="registration_number" value="Registro (Ex: CREFITO)" />
-                            <TextInput
-                                id="registration_number"
-                                name="registration_number"
-                                value={data.registration_number}
-                                className="mt-1 block w-full"
-                                onChange={(e) => setData('registration_number', e.target.value)}
-                            />
-                            <InputError message={errors.registration_number} className="mt-2" />
-                        </div>
-
-                        <div>
-                            <InputLabel htmlFor="email" value="E-mail de Contato" />
-                            <TextInput
-                                id="email"
-                                type="email"
-                                name="email"
-                                value={data.email}
-                                className="mt-1 block w-full"
-                                autoComplete="email"
-                                onChange={(e) => setData('email', e.target.value)}
-                            />
-                            <InputError message={errors.email} className="mt-2" />
-                        </div>
-
-                        <div>
-                            <InputLabel htmlFor="phone" value="Telefone / WhatsApp" />
-                            <TextInput
-                                id="phone"
-                                name="phone"
-                                value={data.phone}
-                                className="mt-1 block w-full"
-                                onChange={(e) => setData('phone', e.target.value)}
-                            />
-                            <InputError message={errors.phone} className="mt-2" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <InputLabel value="Cor de Identificação (Agenda)" />
-                        <div className="flex flex-wrap gap-4 mt-3">
-                            {colorOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => setData('color', option.value)}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${data.color === option.value ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-105'}`}
-                                    style={{ backgroundColor: option.value }}
-                                    title={option.name}
-                                >
-                                    {data.color === option.value && (
-                                        <span className="material-symbols-outlined text-white text-sm">check</span>
-                                    )}
-                                </button>
-                            ))}
-                            <div className="flex items-center gap-2 ml-2">
-                                <input 
-                                    type="color" 
-                                    value={data.color}
-                                    onChange={(e) => setData('color', e.target.value)}
-                                    className="w-10 h-10 p-0 border-0 bg-transparent cursor-pointer rounded-full overflow-hidden"
+            <form onSubmit={submit} className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2 space-y-6">
+                    {/* Basic Info */}
+                    <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 border border-stone-100 dark:border-stone-800 shadow-sm">
+                        <h2 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary">person</span>
+                            Dados Básicos
+                        </h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <InputLabel value="Nome Completo" />
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.name}
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    required
                                 />
-                                <span className="text-xs text-on-surface-variant font-medium uppercase">{data.color}</span>
+                                <InputError message={errors.name} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Registro Profissional (CRM/CRP)" />
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.registration_number}
+                                    onChange={(e) => setData('registration_number', e.target.value)}
+                                />
+                                <InputError message={errors.registration_number} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Cor na Agenda" />
+                                <div className="flex items-center gap-3 mt-1">
+                                    <TextInput
+                                        type="color"
+                                        className="h-10 w-20 !p-1 cursor-pointer"
+                                        value={data.color}
+                                        onChange={(e) => setData('color', e.target.value)}
+                                    />
+                                    <span className="text-xs text-stone-500 font-medium uppercase">{data.color}</span>
+                                </div>
+                                <InputError message={errors.color} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel value="E-mail" />
+                                <TextInput
+                                    type="email"
+                                    className="w-full mt-1"
+                                    value={data.email}
+                                    onChange={(e) => setData('email', e.target.value)}
+                                />
+                                <InputError message={errors.email} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Telefone" />
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                />
+                                <InputError message={errors.phone} className="mt-2" />
                             </div>
                         </div>
-                        <InputError message={errors.color} className="mt-2" />
                     </div>
 
-                    <div className="flex items-center justify-end mt-8 pt-6 border-t border-outline-variant/10">
-                        <PrimaryButton className="px-10 py-3" disabled={processing}>
-                            Salvar Profissional
+                    {/* Specialties */}
+                    <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 border border-stone-100 dark:border-stone-800 shadow-sm">
+                        <h2 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary">psychology</span>
+                            Especialidades
+                        </h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {specialties.map(specialty => (
+                                <label key={specialty.id} className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${data.specialties.includes(specialty.id) ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20' : 'bg-stone-50 border-stone-100 hover:border-stone-200'}`}>
+                                    <Checkbox
+                                        checked={data.specialties.includes(specialty.id)}
+                                        onChange={(e) => {
+                                            const val = specialty.id;
+                                            setData('specialties', e.target.checked 
+                                                ? [...data.specialties, val]
+                                                : data.specialties.filter(v => v !== val)
+                                            );
+                                        }}
+                                    />
+                                    <span className={`text-sm font-bold ${data.specialties.includes(specialty.id) ? 'text-primary' : 'text-stone-600'}`}>
+                                        {specialty.name}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        <InputError message={errors.specialties} className="mt-2" />
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Working Hours */}
+                    <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 border border-stone-100 dark:border-stone-800 shadow-sm">
+                        <h2 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary">schedule</span>
+                            Horários de Atendimento
+                        </h2>
+                        <ProfessionalHoursForm 
+                            hours={data.hours}
+                            onChange={(newHours) => setData('hours', newHours)}
+                        />
+                        <InputError message={errors.hours} className="mt-2" />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="bg-[#466250] rounded-3xl p-8 text-white shadow-xl shadow-primary/20">
+                        <h3 className="font-bold mb-2">Finalizar Cadastro</h3>
+                        <p className="text-white/70 text-sm mb-6">Confira se todos os dados e horários estão corretos antes de salvar.</p>
+                        
+                        <PrimaryButton className="w-full !bg-white !text-[#466250] !py-4 flex justify-center !rounded-2xl shadow-lg" disabled={processing}>
+                            {processing ? 'Salvando...' : 'Cadastrar Profissional'}
                         </PrimaryButton>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </AuthenticatedLayout>
     );
 }

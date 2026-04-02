@@ -31,12 +31,14 @@ class AgendaController extends Controller
             ->orderBy('start_time')
             ->get();
 
+        $selectedProfessional = Professional::with('hours')->find($professionalId);
+        
         return Inertia::render('Agenda', [
             'professionals' => $professionals,
             'patients' => Patient::orderBy('name')->get(),
             'specialties' => Specialty::orderBy('name')->get(),
             'appointments' => $appointments,
-            'clinicHours' => ClinicHour::all(),
+            'professionalHours' => $selectedProfessional ? $selectedProfessional->hours : [],
             'filters' => [
                 'date' => $date->format('Y-m-d'),
                 'professional_id' => $professionalId,
@@ -58,7 +60,7 @@ class AgendaController extends Controller
         $specialty = Specialty::findOrFail($request->specialty_id);
         $endTime = $startTime->copy()->addMinutes($specialty->duration_minutes);
 
-        // Clinic hours validation
+        // Professional's specific hours validation
         $daysTranslations = [
             'Monday' => 'Segunda-feira',
             'Tuesday' => 'Terça-feira',
@@ -70,18 +72,19 @@ class AgendaController extends Controller
         ];
 
         $dayName = $daysTranslations[$startTime->format('l')];
-        $clinicHour = ClinicHour::where('day_of_week', $dayName)->first();
+        $professional = Professional::findOrFail($request->professional_id);
+        $hourConfig = $professional->hours()->where('day_of_week', $dayName)->first();
 
-        if (!$clinicHour || !$clinicHour->is_open) {
-            return redirect()->back()->withErrors(['start_time' => "A clínica está fechada aos {$dayName}s."]);
+        if (!$hourConfig || !$hourConfig->is_open) {
+            return redirect()->back()->withErrors(['start_time' => "O profissional não atende aos {$dayName}s."]);
         }
 
-        $openTime = Carbon::createFromFormat('H:i:s', $clinicHour->open_time)->setDateFrom($startTime);
-        $closeTime = Carbon::createFromFormat('H:i:s', $clinicHour->close_time)->setDateFrom($startTime);
+        $openTime = Carbon::createFromFormat('H:i:s', $hourConfig->open_time)->setDateFrom($startTime);
+        $closeTime = Carbon::createFromFormat('H:i:s', $hourConfig->close_time)->setDateFrom($startTime);
 
         if ($startTime->lt($openTime) || $endTime->gt($closeTime)) {
             return redirect()->back()->withErrors([
-                'start_time' => "Horário fora do expediente. Funcionamento: {$openTime->format('H:i')} às {$closeTime->format('H:i')}."
+                'start_time' => "Horário fora do expediente do profissional. Atendimento: {$openTime->format('H:i')} às {$closeTime->format('H:i')}."
             ]);
         }
 

@@ -22,4 +22,9 @@ class Professional extends Model
     {
         return $this->belongsToMany(Specialty::class);
     }
+
+    public function hours()
+    {
+        return $this->hasMany(ProfessionalHour::class);
+    }
 }

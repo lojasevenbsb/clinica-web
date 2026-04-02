@@ -1,35 +1,28 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import AppointmentModal from '@/Components/AppointmentModal';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function Agenda({ professionals, patients, specialties, appointments, clinicHours, filters }) {
+export default function Agenda({ professionals, patients, specialties, appointments, professionalHours, filters }) {
     const [showModal, setShowModal] = useState(false);
-    const selectedDate = filters.date;
-    const selectedProfessionalId = filters.professional_id;
+    const [selectedDate, setSelectedDate] = useState(filters.date);
+    const [selectedProfessionalId, setSelectedProfessionalId] = useState(filters.professional_id);
 
-    const getDayNameInPortuguese = (dateString) => {
-        const date = parseISO(dateString);
-        const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-        return dayNames[date.getDay()];
-    };
+    const professionalConfig = useMemo(() => {
+        const dayName = format(parseISO(selectedDate), 'EEEE', { locale: ptBR });
+        return professionalHours.find(h => h.day_of_week === dayName);
+    }, [professionalHours, selectedDate]);
 
-    const clinicConfig = useMemo(() => {
-        if (!clinicHours) return { is_open: true, open_time: '07:00', close_time: '21:00' };
-        const dayName = getDayNameInPortuguese(selectedDate);
-        return clinicHours.find(h => h.day_of_week === dayName) || { is_open: false };
-    }, [selectedDate, clinicHours]);
-
-    const isClinicOpen = clinicConfig.is_open;
+    const isProfessionalWorking = professionalConfig?.is_open;
 
     // Group appointments by hour for the grid
     const hours = useMemo(() => {
-        if (!isClinicOpen) return [];
+        if (!isProfessionalWorking) return [];
         
-        const start = parseInt(clinicConfig.open_time.split(':')[0]);
-        const end = parseInt(clinicConfig.close_time.split(':')[0]);
+        const start = parseInt(professionalConfig.open_time.split(':')[0]);
+        const end = parseInt(professionalConfig.close_time.split(':')[0]);
         
         const slots = [];
         for (let h = start; h < end; h++) {
@@ -42,7 +35,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
             });
         }
         return slots;
-    }, [isClinicOpen, clinicConfig, appointments]);
+    }, [isProfessionalWorking, professionalConfig, appointments]);
 
     // Use a fixed start of week for the date selector or dynamic based on selectedDate
     const weekDays = useMemo(() => {
@@ -51,13 +44,16 @@ export default function Agenda({ professionals, patients, specialties, appointme
     }, [selectedDate]);
 
     const handleDateSelect = (date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        setSelectedDate(dateStr);
         router.get(route('agenda'), { 
-            date: format(date, 'yyyy-MM-dd'),
+            date: dateStr,
             professional_id: selectedProfessionalId 
         }, { preserveState: true });
     };
 
     const handleProfessionalSelect = (id) => {
+        setSelectedProfessionalId(id);
         router.get(route('agenda'), { 
             date: selectedDate,
             professional_id: id 
@@ -98,7 +94,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
                             onClick={() => handleProfessionalSelect(p.id)}
                             className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId == p.id ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
                         >
-                            <div className="w-8 h-8 rounded-full bg-primary-container text-primary flex items-center justify-center font-bold text-xs">
+                            <div className="w-8 h-8 rounded-full bg-primary-container text-primary flex items-center justify-center font-bold text-xs" style={{ backgroundColor: p.color + '33', color: p.color }}>
                                 {p.name.charAt(0)}
                             </div>
                             <span className={`text-sm font-bold ${selectedProfessionalId == p.id ? 'text-on-primary' : 'text-on-surface'}`}>
@@ -113,7 +109,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
             </section>
 
             {/* Horizontal Date Selector */}
-            <section className="bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 overflow-hidden">
+            <section className="bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 overflow-hidden mt-4">
                 <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-1">
                     {weekDays.map((day) => {
                         const active = isSameDay(day, parseISO(selectedDate));
@@ -134,22 +130,22 @@ export default function Agenda({ professionals, patients, specialties, appointme
             </section>
 
             {/* Grid Agenda Section */}
-            <section className="space-y-1">
-                {!isClinicOpen ? (
+            <section className="space-y-1 mt-4">
+                {!isProfessionalWorking ? (
                     <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-12 flex flex-col items-center text-center gap-4">
-                        <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-full flex items-center justify-center text-red-500">
-                            <span className="material-symbols-outlined text-4xl">block</span>
+                        <div className="w-20 h-20 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center text-stone-400">
+                            <span className="material-symbols-outlined text-4xl">event_busy</span>
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-stone-900">Clínica Fechada</h2>
-                            <p className="text-stone-500">Não há expediente cadastrado para este dia da semana.</p>
+                            <h2 className="text-xl font-bold text-stone-900">Profissional Indisponível</h2>
+                            <p className="text-stone-500">Este profissional não realiza atendimentos neste dia da semana.</p>
                         </div>
-                        <button 
-                            onClick={() => router.get(route('settings.agenda'))}
+                        <Link 
+                            href={route('professionals.edit', selectedProfessionalId)}
                             className="text-primary font-bold text-sm hover:underline"
                         >
-                            Ver horários de funcionamento
-                        </button>
+                            Editar horários de {selectedProfessional?.name}
+                        </Link>
                     </div>
                 ) : (
                     <>
@@ -214,7 +210,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
                 professionals={professionals}
                 patients={patients}
                 specialties={specialties}
-                clinicHours={clinicHours}
+                professionalHours={professionalHours}
                 selectedDate={selectedDate}
                 selectedProfessionalId={selectedProfessionalId}
             />

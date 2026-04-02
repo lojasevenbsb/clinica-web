@@ -33,10 +33,19 @@ class ProfessionalController extends Controller
             'color' => 'required|string|max:7',
             'specialties' => 'required|array|min:1',
             'specialties.*' => 'exists:specialties,id',
+            'hours' => 'required|array|size:7',
+            'hours.*.day_of_week' => 'required|string',
+            'hours.*.is_open' => 'required|boolean',
+            'hours.*.open_time' => 'required|string',
+            'hours.*.close_time' => 'required|string',
         ]);
 
         $professional = Professional::create($validated);
         $professional->specialties()->sync($request->specialties);
+
+        foreach ($request->hours as $hour) {
+            $professional->hours()->create($hour);
+        }
 
         return redirect()->route('professionals.index')->with('success', 'Profissional cadastrado com sucesso!');
     }
@@ -44,7 +53,7 @@ class ProfessionalController extends Controller
     public function edit(Professional $professional)
     {
         return Inertia::render('Professionals/Edit', [
-            'professional' => $professional->load('specialties'),
+            'professional' => $professional->load(['specialties', 'hours']),
             'specialties' => Specialty::orderBy('name')->get()
         ]);
     }
@@ -59,10 +68,26 @@ class ProfessionalController extends Controller
             'color' => 'required|string|max:7',
             'specialties' => 'required|array|min:1',
             'specialties.*' => 'exists:specialties,id',
+            'hours' => 'required|array|size:7',
+            'hours.*.day_of_week' => 'required|string',
+            'hours.*.is_open' => 'required|boolean',
+            'hours.*.open_time' => 'required|string',
+            'hours.*.close_time' => 'required|string',
         ]);
 
         $professional->update($validated);
         $professional->specialties()->sync($request->specialties);
+
+        foreach ($request->hours as $hour) {
+            $professional->hours()->updateOrCreate(
+                ['day_of_week' => $hour['day_of_week']],
+                [
+                    'is_open' => $hour['is_open'],
+                    'open_time' => $hour['open_time'],
+                    'close_time' => $hour['close_time'],
+                ]
+            );
+        }
 
         return redirect()->route('professionals.index')->with('success', 'Profissional atualizado com sucesso!');
     }

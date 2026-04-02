@@ -6,35 +6,30 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function AppointmentModal({ show, onClose, professionals, patients, specialties, clinicHours, selectedDate, selectedProfessionalId }) {
+export default function AppointmentModal({ show, onClose, professionals, patients, specialties, professionalHours, selectedDate, selectedProfessionalId }) {
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         professional_id: selectedProfessionalId || '',
         patient_id: '',
         specialty_id: '',
         date: selectedDate || '',
-        hour: '07:00',
-        start_time: '',
+        hour: '08:00',
         notes: '',
     });
 
     const [duration, setDuration] = useState(0);
     const [availableHours, setAvailableHours] = useState([]);
-    const [isClinicOpen, setIsClinicOpen] = useState(true);
-
-    const getDayNameInPortuguese = (dateString) => {
-        const date = new Date(dateString + 'T00:00:00');
-        const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-        return dayNames[date.getDay()];
-    };
+    const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
 
     useEffect(() => {
-        if (data.date && clinicHours) {
-            const dayName = getDayNameInPortuguese(data.date);
-            const config = clinicHours.find(h => h.day_of_week === dayName);
-            
+        if (data.date && professionalHours) {
+            const dayName = format(parseISO(data.date), 'EEEE', { locale: ptBR });
+            const config = professionalHours.find(h => h.day_of_week === dayName);
+
             if (config && config.is_open) {
-                setIsClinicOpen(true);
+                setIsProfessionalWorking(true);
                 const start = parseInt(config.open_time.split(':')[0]);
                 const end = parseInt(config.close_time.split(':')[0]);
                 
@@ -46,31 +41,25 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                 }
                 setAvailableHours(slots);
                 if (!slots.includes(data.hour)) {
-                    setData('hour', slots[0] || '07:00');
+                    setData('hour', slots[0] || '08:00');
                 }
             } else {
-                setIsClinicOpen(false);
+                setIsProfessionalWorking(false);
                 setAvailableHours([]);
             }
         }
-    }, [data.date, clinicHours]);
+    }, [data.date, professionalHours]);
 
     useEffect(() => {
         if (show) {
-            setData({
-                ...data,
+            setData(d => ({
+                ...d,
                 professional_id: selectedProfessionalId || '',
                 date: selectedDate || '',
-            });
+            }));
             clearErrors();
         }
     }, [show, selectedDate, selectedProfessionalId]);
-
-    useEffect(() => {
-        if (data.date && data.hour) {
-            setData('start_time', `${data.date} ${data.hour}:00`);
-        }
-    }, [data.date, data.hour]);
 
     useEffect(() => {
         if (data.specialty_id) {
@@ -81,7 +70,8 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('appointments.store'), {
+        const start_time = `${data.date} ${data.hour}:00`;
+        post(route('appointments.store', { ...data, start_time }), {
             onSuccess: () => {
                 reset();
                 onClose();
@@ -89,127 +79,121 @@ export default function AppointmentModal({ show, onClose, professionals, patient
         });
     };
 
-    const hours = [];
-    for (let h = 7; h <= 21; h++) {
-        const hourStr = h.toString().padStart(2, '0');
-        hours.push(`${hourStr}:00`);
-        hours.push(`${hourStr}:30`);
-    }
-
     return (
-        <Modal show={show} onClose={onClose} maxWidth="lg">
-            <form onSubmit={submit} className="p-8">
-                <div className="flex items-center gap-4 text-primary mb-6">
-                    <span className="material-symbols-outlined text-4xl">calendar_add_on</span>
-                    <div>
-                        <h2 className="text-xl font-bold">Novo Agendamento</h2>
-                        <p className="text-stone-500 text-sm">Preencha os dados do atendimento físico.</p>
-                    </div>
+        <Modal show={show} onClose={onClose} maxWidth="2xl">
+            <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-black text-primary tracking-tight">Novo Agendamento</h2>
+                    <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
                 </div>
 
-                <div className="space-y-5">
-                    <div>
-                        <InputLabel htmlFor="professional_id" value="Profissional" />
-                        <select
-                            id="professional_id"
-                            className="mt-1 block w-full bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:ring-primary focus:border-primary transition-all"
-                            value={data.professional_id}
-                            onChange={(e) => setData('professional_id', e.target.value)}
-                            required
-                        >
-                            <option value="">Selecione um profissional</option>
-                            {professionals.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </select>
-                        <InputError message={errors.professional_id} className="mt-2" />
+                {!isProfessionalWorking && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+                        <span className="material-symbols-outlined">warning</span>
+                        <p className="text-xs font-bold uppercase tracking-wide">O profissional selecionado não atende nesta data.</p>
                     </div>
+                )}
 
-                    <div>
-                        <InputLabel htmlFor="patient_id" value="Paciente" />
-                        <select
-                            id="patient_id"
-                            className="mt-1 block w-full bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:ring-primary focus:border-primary transition-all"
-                            value={data.patient_id}
-                            onChange={(e) => setData('patient_id', e.target.value)}
-                            required
-                        >
-                            <option value="">Selecione um paciente</option>
-                            {patients.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} - {p.cpf}</option>
-                            ))}
-                        </select>
-                        <InputError message={errors.patient_id} className="mt-2" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={submit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <InputLabel htmlFor="specialty_id" value="Especialidade" />
-                            <select
-                                id="specialty_id"
-                                className="mt-1 block w-full bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:ring-primary focus:border-primary transition-all"
+                            <InputLabel value="Profissional" />
+                            <select 
+                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                value={data.professional_id}
+                                onChange={(e) => setData('professional_id', e.target.value)}
+                                required
+                            >
+                                <option value="">Selecionar Profissional</option>
+                                {professionals.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                            <InputError message={errors.professional_id} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel value="Paciente" />
+                            <select 
+                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                value={data.patient_id}
+                                onChange={(e) => setData('patient_id', e.target.value)}
+                                required
+                            >
+                                <option value="">Selecionar Paciente</option>
+                                {patients.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                            <InputError message={errors.patient_id} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel value="Especialidade" />
+                            <select 
+                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.specialty_id}
                                 onChange={(e) => setData('specialty_id', e.target.value)}
                                 required
                             >
-                                <option value="">Selecione...</option>
+                                <option value="">Selecionar Especialidade</option>
                                 {specialties.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                    <option key={s.id} value={s.id}>{s.name} ({s.duration_minutes} min)</option>
                                 ))}
                             </select>
-                            {duration > 0 && <p className="text-[10px] text-primary font-bold mt-1 uppercase tracking-wider">Duração: {duration} min</p>}
                             <InputError message={errors.specialty_id} className="mt-2" />
                         </div>
 
-                        <div>
-                            <InputLabel htmlFor="hour" value="Horário de Início" />
-                            <select
-                                id="hour"
-                                className={`mt-1 block w-full bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:ring-primary focus:border-primary transition-all ${!isClinicOpen ? 'opacity-50 pointer-events-none' : ''}`}
-                                value={data.hour}
-                                onChange={(e) => setData('hour', e.target.value)}
-                                required
-                                disabled={!isClinicOpen}
-                            >
-                                {availableHours.length > 0 ? (
-                                    availableHours.map(h => (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel value="Data" />
+                                <TextInput 
+                                    type="date"
+                                    className="w-full mt-1"
+                                    value={data.date}
+                                    onChange={(e) => setData('date', e.target.value)}
+                                    required
+                                />
+                                <InputError message={errors.date} className="mt-2" />
+                            </div>
+                            <div>
+                                <InputLabel value="Hora Início" />
+                                <select 
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.hour}
+                                    disabled={!isProfessionalWorking}
+                                    onChange={(e) => setData('hour', e.target.value)}
+                                    required
+                                >
+                                    {availableHours.map(h => (
                                         <option key={h} value={h}>{h}</option>
-                                    ))
-                                ) : (
-                                    <option value="">Indisponível</option>
-                                )}
-                            </select>
-                            <InputError message={errors.hour} className="mt-2" />
+                                    ))}
+                                </select>
+                                <InputError message={errors.hour} className="mt-2" />
+                            </div>
                         </div>
                     </div>
-
-                    {!isClinicOpen && (
-                        <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 p-4 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400">
-                            <span className="material-symbols-outlined text-xl">block</span>
-                            <p className="text-xs font-bold uppercase tracking-wider">A clínica está fechada nesta data.</p>
-                        </div>
-                    )}
 
                     <div>
-                        <InputLabel htmlFor="notes" value="Observações (Opcional)" />
-                        <textarea
-                            id="notes"
-                            className="mt-1 block w-full bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:ring-primary focus:border-primary transition-all min-h-[80px]"
+                        <InputLabel value="Observações" />
+                        <textarea 
+                            className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary h-24"
                             value={data.notes}
                             onChange={(e) => setData('notes', e.target.value)}
-                            placeholder="Alguma recomendação específica?"
-                        />
+                        ></textarea>
                         <InputError message={errors.notes} className="mt-2" />
                     </div>
-                </div>
 
-                <div className="flex items-center justify-end mt-8 gap-3 pt-6 border-t border-stone-100 dark:border-stone-800">
-                    <SecondaryButton onClick={onClose} type="button">Cancelar</SecondaryButton>
-                    <PrimaryButton className="px-8" disabled={processing || !isClinicOpen}>
-                        Confirmar Agendamento
-                    </PrimaryButton>
-                </div>
-            </form>
+                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-stone-100 dark:border-stone-800">
+                        <SecondaryButton onClick={onClose} type="button">Cancelar</SecondaryButton>
+                        <PrimaryButton className="px-8" disabled={processing || !isProfessionalWorking}>
+                            {processing ? 'Salvando...' : 'Confirmar Agendamento'}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </div>
         </Modal>
     );
 }

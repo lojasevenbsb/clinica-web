@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import ApplicationLogo from '@/Components/ApplicationLogo';
 import { Link, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
     const { url } = usePage();
@@ -12,8 +13,10 @@ export default function AuthenticatedLayout({ header, children }) {
             <div className="flex min-h-screen">
                 {/* Navigation Drawer (Sidebar) */}
                 <aside className="hidden md:flex flex-col w-64 p-4 bg-white dark:bg-stone-900 rounded-r-2xl h-screen shadow-sm space-y-2 sticky top-0 overflow-y-auto">
-                    <div className="px-4 py-6">
-                        <h1 className="text-lg font-bold text-[#466250]">Clínica Vitalidade</h1>
+                    <div className="px-4 py-12 flex justify-center">
+                        <Link href="/">
+                            <ApplicationLogo className="h-40 w-auto" />
+                        </Link>
                     </div>
                     <nav className="flex-1 space-y-1">
                         <Link 

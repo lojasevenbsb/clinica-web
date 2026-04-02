@@ -14,10 +14,7 @@ export default function GuestLayout({ children }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-primary-fixed to-transparent opacity-80"></div>
                 <div className="relative z-10 flex flex-col h-full justify-between p-12">
                     <Link href="/">
-                        <div className="flex items-center gap-3">
-                            <span className="material-symbols-outlined text-4xl text-on-primary">spa</span>
-                            <span className="text-2xl font-bold tracking-tight text-on-primary">Serenidade Sistêmica</span>
-                        </div>
+                        <ApplicationLogo className="h-64 w-auto drop-shadow-2xl" />
                     </Link>
                     <div className="mt-auto">
                         <h1 className="text-5xl font-extrabold text-on-primary mb-6 leading-tight">
@@ -33,9 +30,8 @@ export default function GuestLayout({ children }) {
             {/* Right side - Form container */}
             <div className="flex-1 flex flex-col items-center justify-center bg-surface-container-lowest p-6 sm:p-12">
                 {/* Mobile top logo */}
-                <div className="md:hidden flex items-center justify-center gap-2 mb-8 w-full">
-                     <span className="material-symbols-outlined text-3xl text-primary">spa</span>
-                     <span className="text-xl font-bold text-on-surface">Serenidade</span>
+                <div className="md:hidden flex items-center justify-center mb-8 w-full">
+                     <ApplicationLogo className="h-32 w-auto" />
                 </div>
                 
                 <div className="w-full max-w-md">

@@ -1,3 +1,4 @@
+import ApplicationLogo from '@/Components/ApplicationLogo';
 import { Head, Link } from '@inertiajs/react';
 
 export default function Welcome({ auth, laravelVersion, phpVersion }) {
@@ -26,7 +27,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                         <header className="grid grid-cols-2 items-center gap-2 py-10 lg:grid-cols-3">
                             <div className="flex lg:col-start-2 lg:justify-center">
                                 <svg
-                                    className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20]"
+                                    className="h-12 w-auto text-white lg:h-16 lg:text-[#466250]"
                                     viewBox="0 0 62 65"
                                     fill="none"
                                     xmlns="http://www.w3.org/2000/svg"

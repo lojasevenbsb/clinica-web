@@ -5,6 +5,7 @@ use App\Http\Controllers\ProfessionalController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,6 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('professionals', ProfessionalController::class);
     Route::resource('patients', PatientController::class);
     Route::resource('specialties', SpecialtyController::class);
+
+    Route::get('/settings/agenda', [SettingsController::class, 'agenda'])->name('settings.agenda');
+    Route::post('/settings/agenda', [SettingsController::class, 'updateAgenda'])->name('settings.agenda.update');
 });
 
 Route::middleware('auth')->group(function () {

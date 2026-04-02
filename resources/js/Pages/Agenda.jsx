@@ -5,10 +5,44 @@ import AppointmentModal from '@/Components/AppointmentModal';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function Agenda({ professionals, patients, specialties, appointments, filters }) {
+export default function Agenda({ professionals, patients, specialties, appointments, clinicHours, filters }) {
     const [showModal, setShowModal] = useState(false);
     const selectedDate = filters.date;
     const selectedProfessionalId = filters.professional_id;
+
+    const getDayNameInPortuguese = (dateString) => {
+        const date = parseISO(dateString);
+        const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        return dayNames[date.getDay()];
+    };
+
+    const clinicConfig = useMemo(() => {
+        if (!clinicHours) return { is_open: true, open_time: '07:00', close_time: '21:00' };
+        const dayName = getDayNameInPortuguese(selectedDate);
+        return clinicHours.find(h => h.day_of_week === dayName) || { is_open: false };
+    }, [selectedDate, clinicHours]);
+
+    const isClinicOpen = clinicConfig.is_open;
+
+    // Group appointments by hour for the grid
+    const hours = useMemo(() => {
+        if (!isClinicOpen) return [];
+        
+        const start = parseInt(clinicConfig.open_time.split(':')[0]);
+        const end = parseInt(clinicConfig.close_time.split(':')[0]);
+        
+        const slots = [];
+        for (let h = start; h < end; h++) {
+            slots.push({
+                label: `${h.toString().padStart(2, '0')}:00`,
+                appointments: appointments.filter(app => {
+                    const appDate = parseISO(app.start_time);
+                    return appDate.getHours() === h;
+                })
+            });
+        }
+        return slots;
+    }, [isClinicOpen, clinicConfig, appointments]);
 
     // Use a fixed start of week for the date selector or dynamic based on selectedDate
     const weekDays = useMemo(() => {
@@ -29,18 +63,6 @@ export default function Agenda({ professionals, patients, specialties, appointme
             professional_id: id 
         }, { preserveState: true });
     };
-
-    // Group appointments by hour for the grid
-    const hours = [];
-    for (let h = 7; h <= 21; h++) {
-        hours.push({
-            label: `${h.toString().padStart(2, '0')}:00`,
-            appointments: appointments.filter(app => {
-                const appDate = parseISO(app.start_time);
-                return appDate.getHours() === h;
-            })
-        });
-    }
 
     const selectedProfessional = professionals.find(p => p.id == selectedProfessionalId);
 
@@ -113,57 +135,77 @@ export default function Agenda({ professionals, patients, specialties, appointme
 
             {/* Grid Agenda Section */}
             <section className="space-y-1">
-                <div className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr_1fr_1fr] gap-x-px bg-outline-variant/30 border border-outline-variant/30 rounded-t-2xl overflow-hidden">
-                    <div className="bg-surface-container px-4 py-3 flex items-center justify-center">
-                        <span className="text-xs font-bold text-outline uppercase tracking-widest">Hora</span>
-                    </div>
-                    <div className="flex bg-surface-container px-4 py-3 items-center justify-center border-l border-outline-variant/30 col-span-1 md:col-span-3">
-                        <span className="text-xs font-bold text-outline uppercase tracking-widest">Atendimentos de {selectedProfessional?.name}</span>
-                    </div>
-                </div>
-
-                {hours.map((hourObj) => (
-                    <div key={hourObj.label} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-x-px bg-outline-variant/30 border-x border-b border-outline-variant/30 last:rounded-b-2xl overflow-hidden">
-                        <div className="bg-surface-container-low px-4 py-8 flex flex-col items-center justify-center">
-                            <span className="text-lg font-bold text-primary">{hourObj.label}</span>
+                {!isClinicOpen ? (
+                    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-12 flex flex-col items-center text-center gap-4">
+                        <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-full flex items-center justify-center text-red-500">
+                            <span className="material-symbols-outlined text-4xl">block</span>
                         </div>
-                        <div className="bg-white p-2 flex flex-wrap gap-2">
-                            {hourObj.appointments.length === 0 ? (
-                                <div 
-                                    onClick={() => setShowModal(true)}
-                                    className="flex-1 min-h-[90px] bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-xl flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
-                                >
-                                    <span className="material-symbols-outlined text-outline/30 group-hover:text-primary transition-colors">add</span>
+                        <div>
+                            <h2 className="text-xl font-bold text-stone-900">Clínica Fechada</h2>
+                            <p className="text-stone-500">Não há expediente cadastrado para este dia da semana.</p>
+                        </div>
+                        <button 
+                            onClick={() => router.get(route('settings.agenda'))}
+                            className="text-primary font-bold text-sm hover:underline"
+                        >
+                            Ver horários de funcionamento
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr_1fr_1fr] gap-x-px bg-outline-variant/30 border border-outline-variant/30 rounded-t-2xl overflow-hidden">
+                            <div className="bg-surface-container px-4 py-3 flex items-center justify-center">
+                                <span className="text-xs font-bold text-outline uppercase tracking-widest">Hora</span>
+                            </div>
+                            <div className="flex bg-surface-container px-4 py-3 items-center justify-center border-l border-outline-variant/30 col-span-1 md:col-span-3">
+                                <span className="text-xs font-bold text-outline uppercase tracking-widest">Atendimentos de {selectedProfessional?.name}</span>
+                            </div>
+                        </div>
+
+                        {hours.map((hourObj) => (
+                            <div key={hourObj.label} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-x-px bg-outline-variant/30 border-x border-b border-outline-variant/30 last:rounded-b-2xl overflow-hidden">
+                                <div className="bg-surface-container-low px-4 py-8 flex flex-col items-center justify-center">
+                                    <span className="text-lg font-bold text-primary">{hourObj.label}</span>
                                 </div>
-                            ) : (
-                                hourObj.appointments.map(app => (
-                                    <div 
-                                        key={app.id} 
-                                        className="min-w-[250px] flex-1 bg-primary/5 border border-primary/20 border-l-4 border-l-primary rounded-xl p-3 flex flex-col justify-between min-h-[90px] shadow-sm relative group"
-                                    >
-                                        <div>
-                                            <div className="flex items-start justify-between mb-1">
-                                                <h3 className="font-bold text-sm text-on-surface">{app.patient.name}</h3>
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => router.delete(route('appointments.destroy', app.id))} className="text-red-500">
-                                                        <span className="material-symbols-outlined text-xs">delete</span>
-                                                    </button>
+                                <div className="bg-white p-2 flex flex-wrap gap-2">
+                                    {hourObj.appointments.length === 0 ? (
+                                        <div 
+                                            onClick={() => setShowModal(true)}
+                                            className="flex-1 min-h-[90px] bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-xl flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-outline/30 group-hover:text-primary transition-colors">add</span>
+                                        </div>
+                                    ) : (
+                                        hourObj.appointments.map(app => (
+                                            <div 
+                                                key={app.id} 
+                                                className="min-w-[250px] flex-1 bg-primary/5 border border-primary/20 border-l-4 border-l-primary rounded-xl p-3 flex flex-col justify-between min-h-[90px] shadow-sm relative group"
+                                            >
+                                                <div>
+                                                    <div className="flex items-start justify-between mb-1">
+                                                        <h3 className="font-bold text-sm text-on-surface">{app.patient.name}</h3>
+                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => router.delete(route('appointments.destroy', app.id))} className="p-1 hover:bg-red-50 rounded text-red-500">
+                                                                <span className="material-symbols-outlined text-xs">delete</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[10px] text-on-primary-fixed-variant bg-primary-fixed px-2 py-0.5 rounded-full font-bold">
+                                                        {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
+                                                    <span className="text-[10px] font-extrabold text-primary uppercase">{app.status}</span>
                                                 </div>
                                             </div>
-                                            <span className="text-[10px] text-on-primary-fixed-variant bg-primary-fixed px-2 py-0.5 rounded-full font-bold">
-                                                {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between mt-2">
-                                            <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
-                                            <span className="text-[10px] font-extrabold text-primary uppercase">{app.status}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                ))}
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </>
+                )}
             </section>
 
             <AppointmentModal 
@@ -172,6 +214,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
                 professionals={professionals}
                 patients={patients}
                 specialties={specialties}
+                clinicHours={clinicHours}
                 selectedDate={selectedDate}
                 selectedProfessionalId={selectedProfessionalId}
             />

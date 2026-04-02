@@ -58,6 +58,13 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="material-symbols-outlined">payments</span>
                             <span className="font-manrope body-md">Financeiro</span>
                         </a>
+                        <Link 
+                            href={route('settings.agenda')} 
+                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('settings.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                        >
+                            <span className="material-symbols-outlined">settings</span>
+                            <span className="font-manrope body-md font-bold">Configurações</span>
+                        </Link>
                     </nav>
                     <div className="pt-4 border-t border-surface-container-highest space-y-1">
                         <Link 

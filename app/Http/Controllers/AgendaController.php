@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\Professional;
 use App\Models\Specialty;
+use App\Models\ClinicHour;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,6 +36,7 @@ class AgendaController extends Controller
             'patients' => Patient::orderBy('name')->get(),
             'specialties' => Specialty::orderBy('name')->get(),
             'appointments' => $appointments,
+            'clinicHours' => ClinicHour::all(),
             'filters' => [
                 'date' => $date->format('Y-m-d'),
                 'professional_id' => $professionalId,
@@ -52,9 +54,36 @@ class AgendaController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $specialty = Specialty::findOrFail($request->specialty_id);
         $startTime = Carbon::parse($request->start_time);
+        $specialty = Specialty::findOrFail($request->specialty_id);
         $endTime = $startTime->copy()->addMinutes($specialty->duration_minutes);
+
+        // Clinic hours validation
+        $daysTranslations = [
+            'Monday' => 'Segunda-feira',
+            'Tuesday' => 'Terça-feira',
+            'Wednesday' => 'Quarta-feira',
+            'Thursday' => 'Quinta-feira',
+            'Friday' => 'Sexta-feira',
+            'Saturday' => 'Sábado',
+            'Sunday' => 'Domingo',
+        ];
+
+        $dayName = $daysTranslations[$startTime->format('l')];
+        $clinicHour = ClinicHour::where('day_of_week', $dayName)->first();
+
+        if (!$clinicHour || !$clinicHour->is_open) {
+            return redirect()->back()->withErrors(['start_time' => "A clínica está fechada aos {$dayName}s."]);
+        }
+
+        $openTime = Carbon::createFromFormat('H:i:s', $clinicHour->open_time)->setDateFrom($startTime);
+        $closeTime = Carbon::createFromFormat('H:i:s', $clinicHour->close_time)->setDateFrom($startTime);
+
+        if ($startTime->lt($openTime) || $endTime->gt($closeTime)) {
+            return redirect()->back()->withErrors([
+                'start_time' => "Horário fora do expediente. Funcionamento: {$openTime->format('H:i')} às {$closeTime->format('H:i')}."
+            ]);
+        }
 
         $validated['end_time'] = $endTime;
 

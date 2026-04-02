@@ -4,18 +4,19 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function AppointmentModal({ show, onClose, professionals, patients, specialties, professionalHours, selectedDate, selectedProfessionalId }) {
-    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
+export default function AppointmentModal({ show, onClose, professionals, patients, specialties, professionalHours, selectedDate, selectedProfessionalId, appointment = null }) {
+    const { data, setData, post, patch, processing, errors, reset, clearErrors } = useForm({
         professional_id: selectedProfessionalId || '',
         patient_id: '',
         specialty_id: '',
         date: selectedDate || '',
         hour: '08:00',
+        status: 'pendente',
         notes: '',
     });
 
@@ -40,7 +41,9 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     slots.push(`${hourStr}:30`);
                 }
                 setAvailableHours(slots);
-                if (!slots.includes(data.hour)) {
+                
+                // Only reset the hour if it's not in the slots AND we are not initializing for an edit
+                if (!slots.includes(data.hour) && !appointment) {
                     setData('hour', slots[0] || '08:00');
                 }
             } else {
@@ -52,14 +55,31 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
     useEffect(() => {
         if (show) {
-            setData(d => ({
-                ...d,
-                professional_id: selectedProfessionalId || '',
-                date: selectedDate || '',
-            }));
+            if (appointment) {
+                const startDateTime = parseISO(appointment.start_time);
+                setData({
+                    professional_id: appointment.professional_id,
+                    patient_id: appointment.patient_id,
+                    specialty_id: appointment.specialty_id,
+                    date: format(startDateTime, 'yyyy-MM-dd'),
+                    hour: format(startDateTime, 'HH:mm'),
+                    status: appointment.status,
+                    notes: appointment.notes || '',
+                });
+            } else {
+                setData({
+                    professional_id: selectedProfessionalId || '',
+                    patient_id: '',
+                    specialty_id: '',
+                    date: selectedDate || '',
+                    hour: '08:00',
+                    status: 'pendente',
+                    notes: '',
+                });
+            }
             clearErrors();
         }
-    }, [show, selectedDate, selectedProfessionalId]);
+    }, [show, appointment, selectedDate, selectedProfessionalId]);
 
     useEffect(() => {
         if (data.specialty_id) {
@@ -70,21 +90,37 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
     const submit = (e) => {
         e.preventDefault();
-        const start_time = `${data.date} ${data.hour}:00`;
-        post(route('appointments.store', { ...data, start_time }), {
-            onSuccess: () => {
-                reset();
-                onClose();
-            },
-        });
+        
+        const transformedData = {
+            ...data,
+            start_time: `${data.date} ${data.hour}:00`
+        };
+
+        if (appointment) {
+            router.patch(route('appointments.update', appointment.id), transformedData, {
+                onSuccess: () => {
+                    reset();
+                    onClose();
+                },
+            });
+        } else {
+            router.post(route('appointments.store'), transformedData, {
+                onSuccess: () => {
+                    reset();
+                    onClose();
+                },
+            });
+        }
     };
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
             <div className="p-8">
                 <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-black text-primary tracking-tight">Novo Agendamento</h2>
-                    <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+                    <h2 className="text-2xl font-black text-primary tracking-tight">
+                        {appointment ? 'Editar Agendamento' : 'Novo Agendamento'}
+                    </h2>
+                    <button onClick={onClose} type="button" className="text-stone-400 hover:text-stone-600 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
@@ -146,6 +182,24 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <InputError message={errors.specialty_id} className="mt-2" />
                         </div>
 
+                        {appointment && (
+                            <div>
+                                <InputLabel value="Status" />
+                                <select 
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.status}
+                                    onChange={(e) => setData('status', e.target.value)}
+                                    required
+                                >
+                                    <option value="pendente">Pendente</option>
+                                    <option value="confirmado">Confirmado</option>
+                                    <option value="cancelado">Cancelado</option>
+                                    <option value="atendido">Atendido</option>
+                                </select>
+                                <InputError message={errors.status} className="mt-2" />
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel value="Data" />
@@ -189,7 +243,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     <div className="flex items-center justify-end gap-3 pt-6 border-t border-stone-100 dark:border-stone-800">
                         <SecondaryButton onClick={onClose} type="button">Cancelar</SecondaryButton>
                         <PrimaryButton className="px-8" disabled={processing || !isProfessionalWorking}>
-                            {processing ? 'Salvando...' : 'Confirmar Agendamento'}
+                            {processing ? 'Salvando...' : (appointment ? 'Atualizar Agendamento' : 'Confirmar Agendamento')}
                         </PrimaryButton>
                     </div>
                 </form>

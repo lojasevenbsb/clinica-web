@@ -99,11 +99,49 @@ class AgendaController extends Controller
     {
         $validated = $request->validate([
             'status' => 'required|string|in:pendente,confirmado,cancelado,atendido',
+            'professional_id' => 'required|exists:professionals,id',
+            'patient_id' => 'required|exists:patients,id',
+            'specialty_id' => 'required|exists:specialties,id',
+            'start_time' => 'required|date',
+            'notes' => 'nullable|string',
         ]);
 
+        $startTime = Carbon::parse($request->start_time);
+        $specialty = Specialty::findOrFail($request->specialty_id);
+        $endTime = $startTime->copy()->addMinutes($specialty->duration_minutes);
+
+        // Professional's specific hours validation (reused from store)
+        $daysTranslations = [
+            'Monday' => 'Segunda-feira',
+            'Tuesday' => 'Terça-feira',
+            'Wednesday' => 'Quarta-feira',
+            'Thursday' => 'Quinta-feira',
+            'Friday' => 'Sexta-feira',
+            'Saturday' => 'Sábado',
+            'Sunday' => 'Domingo',
+        ];
+
+        $dayName = $daysTranslations[$startTime->format('l')];
+        $professional = Professional::findOrFail($request->professional_id);
+        $hourConfig = $professional->hours()->where('day_of_week', $dayName)->first();
+
+        if (!$hourConfig || !$hourConfig->is_open) {
+            return redirect()->back()->withErrors(['start_time' => "O profissional não atende aos {$dayName}s."]);
+        }
+
+        $openTime = Carbon::createFromFormat('H:i:s', $hourConfig->open_time)->setDateFrom($startTime);
+        $closeTime = Carbon::createFromFormat('H:i:s', $hourConfig->close_time)->setDateFrom($startTime);
+
+        if ($startTime->lt($openTime) || $endTime->gt($closeTime)) {
+            return redirect()->back()->withErrors([
+                'start_time' => "Horário fora do expediente do profissional. Atendimento: {$openTime->format('H:i')} às {$closeTime->format('H:i')}."
+            ]);
+        }
+
+        $validated['end_time'] = $endTime;
         $appointment->update($validated);
 
-        return redirect()->back()->with('success', 'Status atualizado!');
+        return redirect()->back()->with('success', 'Agendamento atualizado com sucesso!');
     }
 
     public function destroy(Appointment $appointment)

@@ -1,14 +1,16 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import AppointmentModal from '@/Components/AppointmentModal';
-import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
 export default function Agenda({ professionals, patients, specialties, appointments, professionalHours, filters }) {
     const [showModal, setShowModal] = useState(false);
     const [selectedDate, setSelectedDate] = useState(filters.date);
     const [selectedProfessionalId, setSelectedProfessionalId] = useState(filters.professional_id);
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
+    const dateInputRef = useRef(null);
 
     const professionalConfig = useMemo(() => {
         const dayName = format(parseISO(selectedDate), 'EEEE', { locale: ptBR });
@@ -52,6 +54,30 @@ export default function Agenda({ professionals, patients, specialties, appointme
         }, { preserveState: true });
     };
 
+    const handlePrevWeek = () => {
+        const date = subDays(parseISO(selectedDate), 7);
+        handleDateSelect(date);
+    };
+
+    const handleNextWeek = () => {
+        const date = addDays(parseISO(selectedDate), 7);
+        handleDateSelect(date);
+    };
+
+    const handleGoToToday = () => {
+        handleDateSelect(new Date());
+    };
+
+    const handleOpenPicker = () => {
+        if (dateInputRef.current) {
+            try {
+                dateInputRef.current.showPicker();
+            } catch (e) {
+                dateInputRef.current.click();
+            }
+        }
+    };
+
     const handleProfessionalSelect = (id) => {
         setSelectedProfessionalId(id);
         router.get(route('agenda'), { 
@@ -74,6 +100,33 @@ export default function Agenda({ professionals, patients, specialties, appointme
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+                        <button 
+                            onClick={handleGoToToday}
+                            className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                        >
+                            Hoje
+                        </button>
+                        <div className="w-px h-4 bg-outline-variant/30 mx-1"></div>
+                        <div className="relative">
+                            <input 
+                                ref={dateInputRef}
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => handleDateSelect(parseISO(e.target.value))}
+                                className="absolute inset-0 opacity-0 pointer-events-none"
+                                id="date-picker-input"
+                            />
+                            <button 
+                                onClick={handleOpenPicker}
+                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container transition-colors rounded-lg cursor-pointer"
+                            >
+                                <span className="material-symbols-outlined text-lg">calendar_month</span>
+                                Selecionar Data
+                            </button>
+                        </div>
+                    </div>
+
                     <button 
                         onClick={() => setShowModal(true)}
                         className="bg-primary text-on-primary px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/10"
@@ -109,23 +162,41 @@ export default function Agenda({ professionals, patients, specialties, appointme
             </section>
 
             {/* Horizontal Date Selector */}
-            <section className="bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 overflow-hidden mt-4">
-                <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-1">
-                    {weekDays.map((day) => {
-                        const active = isSameDay(day, parseISO(selectedDate));
-                        return (
-                            <button 
-                                key={day.toString()}
-                                onClick={() => handleDateSelect(day)}
-                                className={`flex-1 min-w-[70px] flex flex-col items-center py-3 px-2 rounded-xl transition-all ${active ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-105 z-10' : 'text-on-surface-variant hover:bg-surface-container'}`}
-                            >
-                                <span className="text-[10px] font-bold uppercase tracking-wider mb-1">
-                                    {format(day, 'EEE', { locale: ptBR })}
-                                </span>
-                                <span className="text-lg font-extrabold">{format(day, 'dd')}</span>
-                            </button>
-                        );
-                    })}
+            <section className="bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 mt-4 relative">
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handlePrevWeek}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:bg-surface-container hover:text-primary transition-all shrink-0"
+                        title="Semana Anterior"
+                    >
+                        <span className="material-symbols-outlined">chevron_left</span>
+                    </button>
+
+                    <div className="flex-1 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-1">
+                        {weekDays.map((day) => {
+                            const active = isSameDay(day, parseISO(selectedDate));
+                            return (
+                                <button 
+                                    key={day.toString()}
+                                    onClick={() => handleDateSelect(day)}
+                                    className={`flex-1 min-w-[70px] flex flex-col items-center py-3 px-2 rounded-xl transition-all ${active ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-105 z-10' : 'text-on-surface-variant hover:bg-surface-container'}`}
+                                >
+                                    <span className="text-[10px] font-bold uppercase tracking-wider mb-1">
+                                        {format(day, 'EEE', { locale: ptBR })}
+                                    </span>
+                                    <span className="text-lg font-extrabold">{format(day, 'dd')}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button 
+                        onClick={handleNextWeek}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:bg-surface-container hover:text-primary transition-all shrink-0"
+                        title="Próxima Semana"
+                    >
+                        <span className="material-symbols-outlined">chevron_right</span>
+                    </button>
                 </div>
             </section>
 
@@ -172,30 +243,57 @@ export default function Agenda({ professionals, patients, specialties, appointme
                                             <span className="material-symbols-outlined text-outline/30 group-hover:text-primary transition-colors">add</span>
                                         </div>
                                     ) : (
-                                        hourObj.appointments.map(app => (
-                                            <div 
-                                                key={app.id} 
-                                                className="min-w-[250px] flex-1 bg-primary/5 border border-primary/20 border-l-4 border-l-primary rounded-xl p-3 flex flex-col justify-between min-h-[90px] shadow-sm relative group"
-                                            >
-                                                <div>
-                                                    <div className="flex items-start justify-between mb-1">
-                                                        <h3 className="font-bold text-sm text-on-surface">{app.patient.name}</h3>
-                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => router.delete(route('appointments.destroy', app.id))} className="p-1 hover:bg-red-50 rounded text-red-500">
-                                                                <span className="material-symbols-outlined text-xs">delete</span>
-                                                            </button>
+                                        hourObj.appointments.map(app => {
+                                            const statusStyles = {
+                                                cancelado: 'bg-red-50 border-red-100 border-l-red-500 text-red-700',
+                                                confirmado: 'bg-emerald-50 border-emerald-100 border-l-emerald-500 text-emerald-700',
+                                                atendido: 'bg-stone-50 border-stone-200 border-l-stone-500 text-stone-600 grayscale',
+                                                pendente: 'bg-amber-50 border-amber-100 border-l-amber-500 text-amber-700',
+                                            }[app.status] || 'bg-amber-50 border-amber-100 border-l-amber-500 text-amber-700';
+
+                                            return (
+                                                <div 
+                                                    key={app.id} 
+                                                    className={`min-w-[250px] flex-1 border border-l-4 rounded-xl p-3 flex flex-col justify-between min-h-[90px] shadow-sm relative group ${statusStyles}`}
+                                                >
+                                                    <div>
+                                                        <div className="flex items-start justify-between mb-1">
+                                                            <h3 className="font-bold text-sm text-on-surface">{app.patient.name}</h3>
+                                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setSelectedAppointment(app);
+                                                                        setShowModal(true);
+                                                                    }} 
+                                                                    className="p-1 hover:bg-black/5 rounded text-inherit"
+                                                                    title="Editar Agendamento"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-xs">edit</span>
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        if(confirm('Tem certeza que deseja excluir este agendamento?')) {
+                                                                            router.delete(route('appointments.destroy', app.id));
+                                                                        }
+                                                                    }} 
+                                                                    className="p-1 hover:bg-black/5 rounded text-red-500"
+                                                                    title="Excluir Agendamento"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-xs">delete</span>
+                                                                </button>
+                                                            </div>
                                                         </div>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${app.status === 'cancelado' ? 'bg-red-200' : 'bg-primary-fixed text-on-primary-fixed-variant'}`}>
+                                                            {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
+                                                        </span>
                                                     </div>
-                                                    <span className="text-[10px] text-on-primary-fixed-variant bg-primary-fixed px-2 py-0.5 rounded-full font-bold">
-                                                        {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
-                                                    </span>
+                                                    <div className="flex items-center justify-between mt-2">
+                                                        <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
+                                                        <span className="text-[10px] font-extrabold uppercase">{app.status}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
-                                                    <span className="text-[10px] font-extrabold text-primary uppercase">{app.status}</span>
-                                                </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </div>
@@ -206,7 +304,11 @@ export default function Agenda({ professionals, patients, specialties, appointme
 
             <AppointmentModal 
                 show={showModal} 
-                onClose={() => setShowModal(false)}
+                onClose={() => {
+                    setShowModal(false);
+                    setSelectedAppointment(null);
+                }}
+                appointment={selectedAppointment}
                 professionals={professionals}
                 patients={patients}
                 specialties={specialties}

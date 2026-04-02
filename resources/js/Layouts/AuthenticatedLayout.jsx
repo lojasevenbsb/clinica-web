@@ -40,10 +40,13 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="material-symbols-outlined">badge</span>
                             <span className="font-manrope body-md">Profissionais</span>
                         </Link>
-                        <a href="#" className="flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg">
-                            <span className="material-symbols-outlined">group</span>
+                        <Link 
+                            href={route('patients.index')} 
+                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('patients.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                        >
+                            <span className="material-symbols-outlined">groups</span>
                             <span className="font-manrope body-md">Pacientes</span>
-                        </a>
+                        </Link>
                         <a href="#" className="flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg">
                             <span className="material-symbols-outlined">payments</span>
                             <span className="font-manrope body-md">Financeiro</span>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfessionalController;
+use App\Http\Controllers\PatientController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('agenda');
 
     Route::resource('professionals', ProfessionalController::class);
+    Route::resource('patients', PatientController::class);
 });
 
 Route::middleware('auth')->group(function () {

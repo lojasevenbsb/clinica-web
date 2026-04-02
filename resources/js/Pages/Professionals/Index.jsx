@@ -1,7 +1,33 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import Modal from '@/Components/Modal';
+import DangerButton from '@/Components/DangerButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 export default function Index({ professionals }) {
+    const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+    const [professionalToDelete, setProfessionalToDelete] = useState(null);
+
+    const confirmDeletion = (professional) => {
+        setProfessionalToDelete(professional);
+        setConfirmingDeletion(true);
+    };
+
+    const closeModal = () => {
+        setConfirmingDeletion(false);
+    };
+
+    const deleteProfessional = () => {
+        router.delete(route('professionals.destroy', professionalToDelete.id), {
+            onSuccess: () => closeModal(),
+            onFinish: () => resetDeletionState(),
+        });
+    };
+
+    const resetDeletionState = () => {
+        setProfessionalToDelete(null);
+    };
     return (
         <AuthenticatedLayout>
             <Head title="Profissionais" />
@@ -57,7 +83,11 @@ export default function Index({ professionals }) {
                                     <Link href={route('professionals.edit', professional.id)} className="p-2 text-stone-400 hover:text-primary transition-colors">
                                         <span className="material-symbols-outlined text-sm">edit</span>
                                     </Link>
-                                    <button className="p-2 text-stone-400 hover:text-error transition-colors">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => confirmDeletion(professional)}
+                                        className="p-2 text-stone-400 hover:text-red-500 transition-colors"
+                                    >
                                         <span className="material-symbols-outlined text-sm">delete</span>
                                     </button>
                                 </div>
@@ -86,6 +116,31 @@ export default function Index({ professionals }) {
                     ))
                 )}
             </div>
+
+            <Modal show={confirmingDeletion} onClose={closeModal} maxWidth="md">
+                <div className="p-8">
+                    <div className="flex items-center gap-4 text-red-600 mb-4">
+                        <span className="material-symbols-outlined text-4xl">warning</span>
+                        <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
+                    </div>
+                    
+                    <p className="text-stone-600 mb-8 leading-relaxed">
+                        Tem certeza que deseja excluir o(a) profissional <span className="font-bold text-stone-900 font-manrope">{professionalToDelete?.name}</span>? Esta ação é permanente e não poderá ser desfeita.
+                    </p>
+
+                    <div className="flex justify-end gap-3">
+                        <SecondaryButton 
+                            onClick={closeModal}
+                            className="bg-transparent border-stone-200 hover:bg-stone-50"
+                        >
+                            Cancelar
+                        </SecondaryButton>
+                        <DangerButton onClick={deleteProfessional} className="px-6 py-2.5 bg-red-600 hover:bg-red-700">
+                            Sim, Excluir Registro
+                        </DangerButton>
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

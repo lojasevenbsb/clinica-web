@@ -20,25 +20,44 @@ class AgendaController extends Controller
 
         $professionals = Professional::all();
         
-        // If no professional selected, pick the first one
-        if (!$professionalId && $professionals->count() > 0) {
-            $professionalId = $professionals->first()->id;
+        // Default to 'all' if no professional selected, or pick the first one if preferred.
+        // The user wants a global view, so defaulting to 'all' might be best.
+        if (!$professionalId) {
+            $professionalId = 'all';
         }
 
-        $appointments = Appointment::with(['patient', 'specialty'])
-            ->where('professional_id', $professionalId)
-            ->whereDate('start_time', $date)
-            ->orderBy('start_time')
-            ->get();
+        $query = Appointment::with(['patient', 'specialty', 'professional'])
+            ->whereDate('start_time', $date);
 
-        $selectedProfessional = Professional::with('hours')->find($professionalId);
+        if ($professionalId !== 'all') {
+            $query->where('professional_id', $professionalId);
+            $selectedProfessional = Professional::with('hours')->find($professionalId);
+            $hours = $selectedProfessional ? $selectedProfessional->hours : [];
+        } else {
+            // Fetch global clinic hours for the 'all' view
+            $dayName = $date->format('l');
+            $daysTranslations = [
+                'Monday' => 'Segunda-feira',
+                'Tuesday' => 'Terça-feira',
+                'Wednesday' => 'Quarta-feira',
+                'Thursday' => 'Quinta-feira',
+                'Friday' => 'Sexta-feira',
+                'Saturday' => 'Sábado',
+                'Sunday' => 'Domingo',
+            ];
+            $translatedDay = $daysTranslations[$dayName];
+            $hours = ClinicHour::where('day_of_week', $translatedDay)->get();
+            $selectedProfessional = null;
+        }
+
+        $appointments = $query->orderBy('start_time')->get();
         
         return Inertia::render('Agenda', [
             'professionals' => $professionals,
             'patients' => Patient::orderBy('name')->get(),
             'specialties' => Specialty::orderBy('name')->get(),
             'appointments' => $appointments,
-            'professionalHours' => $selectedProfessional ? $selectedProfessional->hours : [],
+            'professionalHours' => $hours,
             'filters' => [
                 'date' => $date->format('Y-m-d'),
                 'professional_id' => $professionalId,

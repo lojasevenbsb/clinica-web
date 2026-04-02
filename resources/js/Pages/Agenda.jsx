@@ -87,6 +87,9 @@ export default function Agenda({ professionals, patients, specialties, appointme
     };
 
     const selectedProfessional = professionals.find(p => p.id == selectedProfessionalId);
+    
+    // Check if we are in 'all' professionals view
+    const isAllMode = selectedProfessionalId === 'all';
 
     return (
         <AuthenticatedLayout>
@@ -141,6 +144,19 @@ export default function Agenda({ professionals, patients, specialties, appointme
             <section className="bg-surface-container-lowest p-5 rounded-2xl flex flex-col gap-4 border border-outline-variant/30">
                 <label className="text-xs font-bold text-primary tracking-widest uppercase">Selecionar Profissional</label>
                 <div className="flex flex-wrap gap-4">
+                    <button
+                        onClick={() => handleProfessionalSelect('all')}
+                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId === 'all' ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
+                    >
+                        <span className="material-symbols-outlined">group</span>
+                        <span className={`text-sm font-bold ${selectedProfessionalId === 'all' ? 'text-on-primary' : 'text-on-surface'}`}>
+                            Todos
+                        </span>
+                        {selectedProfessionalId === 'all' && (
+                            <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
+                        )}
+                    </button>
+
                     {professionals.map(p => (
                         <label 
                             key={p.id}
@@ -225,7 +241,9 @@ export default function Agenda({ professionals, patients, specialties, appointme
                                 <span className="text-xs font-bold text-outline uppercase tracking-widest">Hora</span>
                             </div>
                             <div className="flex bg-surface-container px-4 py-3 items-center justify-center border-l border-outline-variant/30 col-span-1 md:col-span-3">
-                                <span className="text-xs font-bold text-outline uppercase tracking-widest">Atendimentos de {selectedProfessional?.name}</span>
+                                <span className="text-xs font-bold text-outline uppercase tracking-widest">
+                                    {isAllMode ? 'Visão Geral da Clínica' : `Atendimentos de ${selectedProfessional?.name}`}
+                                </span>
                             </div>
                         </div>
 
@@ -288,7 +306,14 @@ export default function Agenda({ professionals, patients, specialties, appointme
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-2">
-                                                        <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty.name}</span>
+                                                            {isAllMode && (
+                                                                <span className="text-[10px] font-bold text-primary mt-0.5">
+                                                                    Prof: {app.professional.name}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className="text-[10px] font-extrabold uppercase">{app.status}</span>
                                                     </div>
                                                 </div>

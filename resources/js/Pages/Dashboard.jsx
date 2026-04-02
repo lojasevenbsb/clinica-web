@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 export default function Dashboard() {
     return (
@@ -30,7 +30,7 @@ export default function Dashboard() {
                 <div className="md:col-span-4 bg-surface-container-lowest rounded-3xl p-8 shadow-sm">
                     <div className="flex justify-between items-center mb-8">
                         <h4 className="text-xl font-bold text-on-surface">Próximos Agendamentos</h4>
-                        <a className="text-primary font-semibold text-sm hover:underline" href="#">Ver agenda completa</a>
+                        <Link className="text-primary font-semibold text-sm hover:underline" href={route('agenda')}>Ver agenda completa</Link>
                     </div>
                     <div className="space-y-6">
                         {/* Appointment Item 1 */}

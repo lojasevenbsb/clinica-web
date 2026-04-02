@@ -23,11 +23,16 @@ export default function ResetPassword({ token, email }) {
 
     return (
         <GuestLayout>
-            <Head title="Reset Password" />
+            <Head title="Redefinir Senha" />
+
+            <div className="mb-8 text-center md:text-left">
+                <h2 className="text-3xl font-extrabold text-on-surface mb-2 font-manrope tracking-tight">Nova senha</h2>
+                <p className="text-on-surface-variant text-sm font-medium">Crie uma nova senha segura para sua conta.</p>
+            </div>
 
             <form onSubmit={submit}>
                 <div>
-                    <InputLabel htmlFor="email" value="Email" />
+                    <InputLabel htmlFor="email" value="E-mail" />
 
                     <TextInput
                         id="email"
@@ -43,7 +48,7 @@ export default function ResetPassword({ token, email }) {
                 </div>
 
                 <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                    <InputLabel htmlFor="password" value="Nova Senha" />
 
                     <TextInput
                         id="password"
@@ -62,7 +67,7 @@ export default function ResetPassword({ token, email }) {
                 <div className="mt-4">
                     <InputLabel
                         htmlFor="password_confirmation"
-                        value="Confirm Password"
+                        value="Confirmar Nova Senha"
                     />
 
                     <TextInput
@@ -84,8 +89,8 @@ export default function ResetPassword({ token, email }) {
                 </div>
 
                 <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Reset Password
+                    <PrimaryButton className="w-full" disabled={processing}>
+                        Redefinir Senha
                     </PrimaryButton>
                 </div>
             </form>

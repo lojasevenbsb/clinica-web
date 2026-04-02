@@ -20,8 +20,8 @@ export default function AuthenticatedLayout({ header, children }) {
                             href={route('dashboard')} 
                             className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isDashboard ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
-                            <span className="material-symbols-outlined" style={isDashboard ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
-                            <span className="font-manrope body-md">Dashboard</span>
+                            <span className="material-symbols-outlined" style={isDashboard ? { fontVariationSettings: "'FILL' 1" } : {}}>home</span>
+                            <span className="font-manrope body-md">Início</span>
                         </Link>
                         <Link 
                             href={route('agenda')} 
@@ -39,11 +39,29 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="font-manrope body-md">Financeiro</span>
                         </a>
                     </nav>
-                    <div className="pt-4 border-t border-surface-container-highest">
+                    <div className="pt-4 border-t border-surface-container-highest space-y-1">
+                        <Link 
+                            href={route('profile.edit')}
+                            className="flex items-center gap-3 px-4 py-2 text-stone-600 hover:text-[#466250] hover:bg-stone-50 rounded-lg ease-out duration-200"
+                        >
+                            <span className="material-symbols-outlined text-sm">settings</span>
+                            <span className="font-manrope text-sm font-medium">Perfil</span>
+                        </Link>
+                        <Link 
+                            href={route('logout')} 
+                            method="post" 
+                            as="button"
+                            className="w-full flex items-center gap-3 px-4 py-2 text-error hover:bg-error/5 rounded-lg ease-out duration-200"
+                        >
+                            <span className="material-symbols-outlined text-sm">logout</span>
+                            <span className="font-manrope text-sm font-medium">Sair</span>
+                        </Link>
+                    </div>
+                    <div className="pt-4 mt-2">
                         <div className="flex items-center gap-3 px-4 py-2">
                             <img alt="Avatar" className="w-10 h-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWUhqAJ9bdLKlSPNgR_IwDOZsB5IyqPDAB2KEMpzsC59ESu3j0GN_5DYh55qBYhGSfW6SqhpiNPF6k5RWd355bwH-Afa5E1BTy3Qd-0Z4T-V9fVxfxee03wDzQdtY2baq-W45lsFF3HCW2DDD61Vb2QmVxovFLPkFauwh3o4A6rzrYt9VNeXMsil-13JuTob7BlJJLaLP4tSxKOI0BTVOqx54BY4lokWdZJxA-O24QQQIrnaqDqx1rWdx4POsigeaftjrOOxlXvFaq" />
-                            <div>
-                                <p className="text-sm font-bold text-on-surface">Dra. Mariana</p>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-on-surface truncate">Dra. Mariana</p>
                                 <p className="text-xs text-on-surface-variant">Fisioterapeuta</p>
                             </div>
                         </div>
@@ -81,7 +99,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     href={route('dashboard')} 
                     className={`flex flex-col items-center justify-center px-4 py-1 transition-all duration-300 ease-in-out ${isDashboard ? 'text-[#466250] bg-[#466250]/10 rounded-2xl' : 'text-stone-400 active:opacity-80'}`}
                 >
-                    <span className="material-symbols-outlined" style={isDashboard ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
+                    <span className="material-symbols-outlined" style={isDashboard ? { fontVariationSettings: "'FILL' 1" } : {}}>home</span>
                     <span className="font-manrope text-[11px] font-medium">Início</span>
                 </Link>
                 <Link 

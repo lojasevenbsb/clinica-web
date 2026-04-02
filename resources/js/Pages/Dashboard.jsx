@@ -4,7 +4,7 @@ import { Head } from '@inertiajs/react';
 export default function Dashboard() {
     return (
         <AuthenticatedLayout>
-            <Head title="Dashboard" />
+            <Head title="Início" />
 
             {/* Hero Greeting & Quick Actions */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end mb-12">

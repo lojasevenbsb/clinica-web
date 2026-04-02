@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfessionalController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\SpecialtyController;
+use App\Http\Controllers\AgendaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,9 +23,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
 
-    Route::get('/agenda', function () {
-        return Inertia::render('Agenda');
-    })->name('agenda');
+    Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
+    Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');
+    Route::patch('/appointments/{appointment}', [AgendaController::class, 'update'])->name('appointments.update');
+    Route::delete('/appointments/{appointment}', [AgendaController::class, 'destroy'])->name('appointments.destroy');
 
     Route::resource('professionals', ProfessionalController::class);
     Route::resource('patients', PatientController::class);

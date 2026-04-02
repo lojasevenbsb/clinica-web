@@ -12,7 +12,7 @@ export default function Agenda({ professionals, patients, specialties, appointme
 
     const professionalConfig = useMemo(() => {
         const dayName = format(parseISO(selectedDate), 'EEEE', { locale: ptBR });
-        return professionalHours.find(h => h.day_of_week === dayName);
+        return professionalHours.find(h => h.day_of_week.toLowerCase() === dayName.toLowerCase());
     }, [professionalHours, selectedDate]);
 
     const isProfessionalWorking = professionalConfig?.is_open;

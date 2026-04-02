@@ -26,7 +26,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     useEffect(() => {
         if (data.date && professionalHours) {
             const dayName = format(parseISO(data.date), 'EEEE', { locale: ptBR });
-            const config = professionalHours.find(h => h.day_of_week === dayName);
+            const config = professionalHours.find(h => h.day_of_week.toLowerCase() === dayName.toLowerCase());
 
             if (config && config.is_open) {
                 setIsProfessionalWorking(true);

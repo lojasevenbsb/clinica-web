@@ -1,0 +1,37 @@
+version: '3'
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: clinica-app
+        container_name: clinica-app
+        ports:
+            - "8000:8000"
+            - "5173:5173"
+        volumes:
+            - .:/var/www/html
+        depends_on:
+            - db
+        networks:
+            - clinica-network
+    db:
+        image: mysql:8.3
+        container_name: clinica-db
+        ports:
+            - "3306:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: secret
+            MYSQL_DATABASE: clinica_db
+            MYSQL_USER: admin
+            MYSQL_PASSWORD: secret
+        volumes:
+            - clinica-mysql:/var/lib/mysql
+        networks:
+            - clinica-network
+networks:
+    clinica-network:
+        driver: bridge
+volumes:
+    clinica-mysql:
+        driver: local

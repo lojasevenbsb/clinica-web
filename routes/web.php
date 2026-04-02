@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfessionalController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,6 +23,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/agenda', function () {
         return Inertia::render('Agenda');
     })->name('agenda');
+
+    Route::resource('professionals', ProfessionalController::class);
 });
 
 Route::middleware('auth')->group(function () {

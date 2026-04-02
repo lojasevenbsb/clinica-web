@@ -1,0 +1,154 @@
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head, Link, useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import InputLabel from '@/Components/InputLabel';
+import PrimaryButton from '@/Components/PrimaryButton';
+import TextInput from '@/Components/TextInput';
+
+export default function Create() {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        name: '',
+        specialty: '',
+        registration_number: '',
+        email: '',
+        phone: '',
+        color: '#466250',
+    });
+
+    const submit = (e) => {
+        e.preventDefault();
+        post(route('professionals.store'));
+    };
+
+    const colorOptions = [
+        { name: 'Verde Clínica', value: '#466250' },
+        { name: 'Sálvia', value: '#789682' },
+        { name: 'Ocre', value: '#B4844D' },
+        { name: 'Terracota', value: '#A65D46' },
+        { name: 'Slate', value: '#475569' },
+        { name: 'Indigo', value: '#4F46E5' },
+    ];
+
+    return (
+        <AuthenticatedLayout>
+            <Head title="Novo Profissional" />
+
+            <section className="mb-8">
+                <Link href={route('professionals.index')} className="text-sm text-on-surface-variant hover:text-primary flex items-center gap-1 mb-4">
+                    <span className="material-symbols-outlined text-sm">arrow_back</span>
+                    Voltar para lista
+                </Link>
+                <h1 className="text-3xl font-extrabold tracking-tight text-primary">Novo Profissional</h1>
+                <p className="text-on-surface-variant">Cadastre um novo integrante para a equipe.</p>
+            </section>
+
+            <div className="max-w-3xl bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-outline-variant/30">
+                <form onSubmit={submit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <InputLabel htmlFor="name" value="Nome Completo" />
+                            <TextInput
+                                id="name"
+                                name="name"
+                                value={data.name}
+                                className="mt-1 block w-full"
+                                autoComplete="name"
+                                isFocused={true}
+                                onChange={(e) => setData('name', e.target.value)}
+                                required
+                            />
+                            <InputError message={errors.name} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="specialty" value="Especialidade" />
+                            <TextInput
+                                id="specialty"
+                                name="specialty"
+                                value={data.specialty}
+                                className="mt-1 block w-full"
+                                onChange={(e) => setData('specialty', e.target.value)}
+                                required
+                            />
+                            <InputError message={errors.specialty} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="registration_number" value="Registro (Ex: CREFITO)" />
+                            <TextInput
+                                id="registration_number"
+                                name="registration_number"
+                                value={data.registration_number}
+                                className="mt-1 block w-full"
+                                onChange={(e) => setData('registration_number', e.target.value)}
+                            />
+                            <InputError message={errors.registration_number} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="email" value="E-mail de Contato" />
+                            <TextInput
+                                id="email"
+                                type="email"
+                                name="email"
+                                value={data.email}
+                                className="mt-1 block w-full"
+                                autoComplete="email"
+                                onChange={(e) => setData('email', e.target.value)}
+                            />
+                            <InputError message={errors.email} className="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel htmlFor="phone" value="Telefone / WhatsApp" />
+                            <TextInput
+                                id="phone"
+                                name="phone"
+                                value={data.phone}
+                                className="mt-1 block w-full"
+                                onChange={(e) => setData('phone', e.target.value)}
+                            />
+                            <InputError message={errors.phone} className="mt-2" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <InputLabel value="Cor de Identificação (Agenda)" />
+                        <div className="flex flex-wrap gap-4 mt-3">
+                            {colorOptions.map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setData('color', option.value)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${data.color === option.value ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                                    style={{ backgroundColor: option.value }}
+                                    title={option.name}
+                                >
+                                    {data.color === option.value && (
+                                        <span className="material-symbols-outlined text-white text-sm">check</span>
+                                    )}
+                                </button>
+                            ))}
+                            <div className="flex items-center gap-2 ml-2">
+                                <input 
+                                    type="color" 
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    className="w-10 h-10 p-0 border-0 bg-transparent cursor-pointer rounded-full overflow-hidden"
+                                />
+                                <span className="text-xs text-on-surface-variant font-medium uppercase">{data.color}</span>
+                            </div>
+                        </div>
+                        <InputError message={errors.color} className="mt-2" />
+                    </div>
+
+                    <div className="flex items-center justify-end mt-8 pt-6 border-t border-outline-variant/10">
+                        <PrimaryButton className="px-10 py-3" disabled={processing}>
+                            Salvar Profissional
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </div>
+        </AuthenticatedLayout>
+    );
+}

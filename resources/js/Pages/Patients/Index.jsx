@@ -4,11 +4,24 @@ import { useState, useEffect } from 'react';
 import Modal from '@/Components/Modal';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import AssignPackageModal from '@/Components/AssignPackageModal';
 
 export default function Index({ patients, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [patientToDelete, setPatientToDelete] = useState(null);
+    const [assigningPackage, setAssigningPackage] = useState(false);
+    const [selectedPatient, setSelectedPatient] = useState(null);
+
+    const openAssignPackage = (patient) => {
+        setSelectedPatient(patient);
+        setAssigningPackage(true);
+    };
+
+    const closeAssignPackage = () => {
+        setAssigningPackage(false);
+        setSelectedPatient(null);
+    };
 
     const confirmDeletion = (patient) => {
         setPatientToDelete(patient);
@@ -109,6 +122,14 @@ export default function Index({ patients, filters }) {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openAssignPackage(patient)}
+                                                    className="p-2 text-[#466250] hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors group"
+                                                    title="Atribuir Pacote"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm font-variation-settings-fill group-hover:fill-1">inventory_2</span>
+                                                </button>
                                                 <Link href={route('patients.edit', patient.id)} className="p-2 text-stone-400 hover:text-primary transition-colors">
                                                     <span className="material-symbols-outlined text-sm">edit</span>
                                                 </Link>
@@ -153,6 +174,12 @@ export default function Index({ patients, filters }) {
                     </div>
                 </div>
             </Modal>
+
+            <AssignPackageModal 
+                show={assigningPackage} 
+                onClose={closeAssignPackage} 
+                patient={selectedPatient} 
+            />
         </AuthenticatedLayout>
     );
 }

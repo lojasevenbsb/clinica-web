@@ -4,10 +4,13 @@ import { useState } from 'react';
 import Modal from '@/Components/Modal';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import PackageManagementModal from '@/Components/PackageManagementModal';
 
 export default function Index({ specialties }) {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [specialtyToDelete, setSpecialtyToDelete] = useState(null);
+    const [managementModalShow, setManagementModalShow] = useState(false);
+    const [specialtyForManagement, setSpecialtyForManagement] = useState(null);
 
     const confirmDeletion = (specialty) => {
         setSpecialtyToDelete(specialty);
@@ -22,6 +25,16 @@ export default function Index({ specialties }) {
         router.delete(route('specialties.destroy', specialtyToDelete.id), {
             onSuccess: () => closeModal(),
         });
+    };
+
+    const openManagementModal = (specialty) => {
+        setSpecialtyForManagement(specialty);
+        setManagementModalShow(true);
+    };
+
+    const closeManagementModal = () => {
+        setManagementModalShow(false);
+        setSpecialtyForManagement(null);
     };
 
     return (

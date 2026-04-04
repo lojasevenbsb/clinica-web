@@ -21,4 +21,9 @@ class Patient extends Model
     protected $casts = [
         'birth_date' => 'date:Y-m-d',
     ];
+
+    public function packages()
+    {
+        return $this->hasMany(PatientPackage::class);
+    }
 }

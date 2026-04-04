@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClinicHour;
+use App\Models\Specialty;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -12,6 +13,13 @@ class SettingsController extends Controller
     {
         return Inertia::render('Settings/Agenda', [
             'clinicHours' => ClinicHour::all()
+        ]);
+    }
+
+    public function packages()
+    {
+        return Inertia::render('Settings/Packages', [
+            'specialties' => Specialty::with('packages')->orderBy('name')->get()
         ]);
     }
 

@@ -11,6 +11,10 @@
     line-height: 1;
 }
 
+.font-variation-settings-fill {
+    font-variation-settings: 'FILL' 1 !important;
+}
+
 body {
     font-family: 'Manrope', sans-serif;
     min-height: max(884px, 100dvh);

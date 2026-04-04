@@ -15,4 +15,9 @@ class Specialty extends Model
     {
         return $this->belongsToMany(Professional::class);
     }
+
+    public function packages()
+    {
+        return $this->hasMany(Package::class);
+    }
 }

@@ -58,13 +58,26 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="material-symbols-outlined">payments</span>
                             <span className="font-manrope body-md">Financeiro</span>
                         </a>
-                        <Link 
-                            href={route('settings.agenda')} 
-                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('settings.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
-                        >
-                            <span className="material-symbols-outlined">settings</span>
-                            <span className="font-manrope body-md font-bold">Configurações</span>
-                        </Link>
+                        <div className="space-y-1">
+                            <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm">settings</span>
+                                Configurações
+                            </div>
+                            <Link 
+                                href={route('settings.agenda')} 
+                                className={`flex items-center gap-3 px-8 py-2.5 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('settings.agenda') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                            >
+                                <span className="material-symbols-outlined text-sm" style={route().current('settings.agenda') ? { fontVariationSettings: "'FILL' 1" } : {}}>calendar_month</span>
+                                <span className="font-manrope text-sm">Agenda</span>
+                            </Link>
+                            <Link 
+                                href={route('settings.packages')} 
+                                className={`flex items-center gap-3 px-8 py-2.5 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('settings.packages') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                            >
+                                <span className="material-symbols-outlined text-sm" style={route().current('settings.packages') ? { fontVariationSettings: "'FILL' 1" } : {}}>inventory_2</span>
+                                <span className="font-manrope text-sm">Pacotes</span>
+                            </Link>
+                        </div>
                     </nav>
                     <div className="pt-4 border-t border-surface-container-highest space-y-1">
                         <Link 

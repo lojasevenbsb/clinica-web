@@ -18,10 +18,7 @@ class PackageController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'session_count' => 'nullable|integer|min:1',
-            'sessions_per_week' => 'nullable|integer|min:1',
             'price' => 'required|numeric|min:0',
-            'duration_months' => 'nullable|integer|min:1',
-            'billing_day' => 'nullable|integer|min:1|max:31',
         ]);
 
         $specialty->packages()->create($validated);

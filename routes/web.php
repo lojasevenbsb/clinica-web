@@ -6,6 +6,8 @@ use App\Http\Controllers\PatientController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\PatientPackageController;
+use App\Http\Controllers\PaymentOptionController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -42,6 +44,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/agenda', [SettingsController::class, 'agenda'])->name('settings.agenda');
     Route::post('/settings/agenda', [SettingsController::class, 'updateAgenda'])->name('settings.agenda.update');
     Route::get('/settings/packages', [SettingsController::class, 'packages'])->name('settings.packages');
+    Route::get('/settings/payment', [SettingsController::class, 'payment'])->name('settings.payment');
+
+    Route::get('/payment-options', [PaymentOptionController::class, 'index'])->name('payment_options.index');
+    Route::post('/payment-options', [PaymentOptionController::class, 'store'])->name('payment_options.store');
+    Route::delete('/payment-options/{paymentOption}', [PaymentOptionController::class, 'destroy'])->name('payment_options.destroy');
 
     Route::post('/patients/{patient}/packages', [PatientPackageController::class, 'store'])->name('patients.packages.store');
     Route::get('/patients/{patient}/packages', [PatientPackageController::class, 'index'])->name('patients.packages.index');

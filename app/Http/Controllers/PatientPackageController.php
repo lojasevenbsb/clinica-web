@@ -19,9 +19,10 @@ class PatientPackageController extends Controller
         $validated = $request->validate([
             'package_id' => 'required|exists:packages,id',
             'start_date' => 'required|date',
-            'end_date' => 'nullable|date',
-            'billing_day' => 'required|integer|min:1|max:31',
             'price' => 'required|numeric|min:0',
+            'session_count' => 'nullable|integer|min:1',
+            'payment_type' => 'nullable|string',
+            'payment_method' => 'nullable|string',
             'notes' => 'nullable|string',
         ]);
 

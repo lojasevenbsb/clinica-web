@@ -12,28 +12,48 @@ export default function AssignPackageModal({ show, onClose, patient }) {
     const [selectedSpecialty, setSelectedSpecialty] = useState(null);
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [mensalidade, setMensalidade] = useState(false);
+    const [parcelas, setParcelas] = useState([]);
+    const [melhorData, setMelhorData] = useState(null);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [paymentTypes, setPaymentTypes] = useState([]);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         package_id: '',
         start_date: new Date().toISOString().split('T')[0],
-        end_date: '',
-        billing_day: '',
         price: '',
+        session_count: '',
+        payment_type: '',
+        payment_method: '',
         notes: '',
+        mensalidade_meses: '',
+        mensalidade_valor: '',
     });
 
     useEffect(() => {
         if (show) {
             fetchSpecialties();
+            fetchPaymentOptions();
         }
     }, [show]);
+
+    const fetchPaymentOptions = async () => {
+        try {
+            const res = await fetch(route('payment_options.index'));
+            const options = await res.json();
+            setPaymentMethods(options.filter(o => o.group === 'method'));
+            setPaymentTypes(options.filter(o => o.group === 'type'));
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const fetchSpecialties = async () => {
         setLoading(true);
         try {
             const response = await fetch(route('specialties.with_packages'));
-            const data = await response.json();
-            setSpecialties(data);
+            const json = await response.json();
+            setSpecialties(json);
         } catch (error) {
             console.error('Error fetching specialties:', error);
         } finally {
@@ -53,48 +73,64 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         setData({
             ...data,
             package_id: packageId,
-            billing_day: pkg?.billing_day || '',
             price: pkg?.price || '',
-            // Clear end_date to trigger the effect
-            end_date: '', 
+            session_count: pkg?.session_count || '',
         });
-
-        if (pkg && data.start_date) {
-            calculateEndDate(data.start_date, pkg.duration_months);
-        }
     };
 
-    const calculateEndDate = (startDateStr, durationMonths) => {
-        if (!startDateStr || !durationMonths) return;
-        
-        const startDate = new Date(startDateStr + 'T00:00:00');
-        const duration = parseInt(durationMonths);
-        
-        if (!isNaN(startDate.getTime()) && !isNaN(duration)) {
-            const endDate = new Date(startDate);
-            endDate.setMonth(startDate.getMonth() + duration);
-            
-            const year = endDate.getFullYear();
-            const month = String(endDate.getMonth() + 1).padStart(2, '0');
-            const day = String(endDate.getDate()).padStart(2, '0');
-            setData(prev => ({ ...prev, end_date: `${year}-${month}-${day}` }));
-        }
-    };
-
+    // Recalculate parcelas
     useEffect(() => {
-        if (data.package_id && data.start_date) {
-            const pkg = packages.find(p => p.id == data.package_id);
-            if (pkg) {
-                calculateEndDate(data.start_date, pkg.duration_months);
-            }
+        if (!mensalidade) {
+            setParcelas([]);
+            return;
         }
-    }, [data.start_date, data.package_id]);
+
+        const numMeses = parseInt(data.mensalidade_meses);
+        const valor = parseFloat(data.price);
+
+        if (!numMeses || numMeses < 1 || !valor || !data.start_date) {
+            setParcelas([]);
+            return;
+        }
+
+        const start = new Date(data.start_date + 'T00:00:00');
+        const dueDay = melhorData ?? start.getDate();
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const geradas = [];
+
+        for (let i = 0; i < numMeses; i++) {
+            const venc = new Date(start.getFullYear(), start.getMonth() + i, dueDay);
+            geradas.push({
+                numero: i + 1,
+                data: venc.toLocaleDateString('pt-BR'),
+                valor: valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                pago: false,
+                vencida: venc < hoje,
+            });
+        }
+
+        setParcelas(geradas);
+    }, [mensalidade, data.mensalidade_meses, data.price, data.start_date, melhorData]);
+
+    const handleClose = () => {
+        reset();
+        setMensalidade(false);
+        setParcelas([]);
+        setMelhorData(null);
+        setSelectedSpecialty(null);
+        setPackages([]);
+        onClose();
+    };
 
     const submit = (e) => {
         e.preventDefault();
         post(route('patients.packages.store', patient.id), {
             onSuccess: () => {
                 reset();
+                setMensalidade(false);
+                setParcelas([]);
+                setMelhorData(null);
                 onClose();
             },
         });
@@ -103,20 +139,20 @@ export default function AssignPackageModal({ show, onClose, patient }) {
     if (!patient) return null;
 
     return (
-        <Modal show={show} onClose={onClose} maxWidth="lg">
+        <Modal show={show} onClose={handleClose} maxWidth="lg">
             <div className="p-8">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h2 className="text-2xl font-bold text-[#466250]">Atribuir Pacote</h2>
-                        <p className="text-stone-500">Selecione um pacote para <span className="font-bold text-stone-900">{patient.name}</span></p>
+                        <h2 className="text-2xl font-bold text-[#466250]">Atribuir Plano</h2>
+                        <p className="text-stone-500">Selecione um plano para <span className="font-bold text-stone-900">{patient.name}</span></p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
+                    <button onClick={handleClose} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
-                <form onSubmit={submit} className="space-y-6">
-                    {/* Specialty Selection */}
+                <form onSubmit={submit} className="space-y-5">
+                    {/* Specialty */}
                     <div>
                         <InputLabel htmlFor="specialty_id" value="Especialidade" />
                         <select
@@ -132,9 +168,9 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                         </select>
                     </div>
 
-                    {/* Package Selection */}
+                    {/* Package */}
                     <div>
-                        <InputLabel htmlFor="package_id" value="Pacote" />
+                        <InputLabel htmlFor="package_id" value="Plano" />
                         <select
                             id="package_id"
                             className="mt-1 block w-full border-stone-200 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 focus:border-primary focus:ring-primary rounded-xl shadow-sm"
@@ -143,58 +179,46 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                             disabled={!selectedSpecialty}
                             required
                         >
-                            <option value="">Selecione um pacote</option>
+                            <option value="">Selecione um plano</option>
                             {packages.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.duration_months ? `${p.duration_months} meses` : 'Sessões'})</option>
+                                <option key={p.id} value={p.id}>
+                                    {p.name} ({p.session_count ? `${p.session_count} sessões` : 'Livre'})
+                                </option>
                             ))}
                         </select>
                         <InputError message={errors.package_id} className="mt-2" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <InputLabel htmlFor="start_date" value="Data de Início" />
-                            <TextInput
-                                id="start_date"
-                                type="date"
-                                className="mt-1 block w-full"
-                                value={data.start_date}
-                                onChange={(e) => setData('start_date', e.target.value)}
-                                required
-                            />
-                            <InputError message={errors.start_date} className="mt-2" />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="end_date" value="Data de Término" />
-                            <TextInput
-                                id="end_date"
-                                type="date"
-                                className="mt-1 block w-full bg-stone-50"
-                                value={data.end_date}
-                                onChange={(e) => setData('end_date', e.target.value)}
-                                readOnly
-                            />
-                            <InputError message={errors.end_date} className="mt-2" />
-                        </div>
+                    {/* Start date + sessions + price */}
+                    <div>
+                        <InputLabel htmlFor="start_date" value="Data de Início" />
+                        <TextInput
+                            id="start_date"
+                            type="date"
+                            className="mt-1 block w-full"
+                            value={data.start_date}
+                            onChange={(e) => setData('start_date', e.target.value)}
+                            required
+                        />
+                        <InputError message={errors.start_date} className="mt-2" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <InputLabel htmlFor="billing_day" value="Dia de Cobrança" />
+                            <InputLabel htmlFor="session_count" value="Qtd. de Sessões" />
                             <TextInput
-                                id="billing_day"
+                                id="session_count"
                                 type="number"
                                 min="1"
-                                max="31"
                                 className="mt-1 block w-full"
-                                value={data.billing_day}
-                                onChange={(e) => setData('billing_day', e.target.value)}
-                                required
+                                value={data.session_count}
+                                onChange={(e) => setData('session_count', e.target.value)}
+                                placeholder="ex: 12"
                             />
-                            <InputError message={errors.billing_day} className="mt-2" />
+                            <InputError message={errors.session_count} className="mt-2" />
                         </div>
                         <div>
-                            <InputLabel htmlFor="price" value="Valor Mensal (R$)" />
+                            <InputLabel htmlFor="price" value="Valor (R$)" />
                             <TextInput
                                 id="price"
                                 type="number"
@@ -208,6 +232,147 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel htmlFor="payment_method" value="Forma de Pagamento" />
+                            <select
+                                id="payment_method"
+                                className="mt-1 block w-full border-stone-200 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 focus:border-primary focus:ring-primary rounded-xl shadow-sm"
+                                value={data.payment_method}
+                                onChange={(e) => setData('payment_method', e.target.value)}
+                            >
+                                <option value="">Selecione</option>
+                                {paymentMethods.map(m => (
+                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                            </select>
+                            <InputError message={errors.payment_method} className="mt-2" />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="payment_type" value="Tipo de Pagamento" />
+                            <select
+                                id="payment_type"
+                                className="mt-1 block w-full border-stone-200 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 focus:border-primary focus:ring-primary rounded-xl shadow-sm"
+                                value={data.payment_type}
+                                onChange={(e) => setData('payment_type', e.target.value)}
+                            >
+                                <option value="">Selecione</option>
+                                {paymentTypes.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            <InputError message={errors.payment_type} className="mt-2" />
+                        </div>
+                    </div>
+
+                    {/* Mensalidade Toggle */}
+                    <div
+                        onClick={() => setMensalidade(!mensalidade)}
+                        className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                            mensalidade
+                                ? 'border-[#466250] bg-[#466250]/5'
+                                : 'border-stone-200 dark:border-stone-700 hover:border-stone-300'
+                        }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className={`material-symbols-outlined text-xl ${mensalidade ? 'text-[#466250]' : 'text-stone-400'}`}>
+                                calendar_month
+                            </span>
+                            <div>
+                                <p className={`font-bold text-sm ${mensalidade ? 'text-[#466250]' : 'text-stone-700 dark:text-stone-300'}`}>
+                                    Gerar Mensalidades
+                                </p>
+                                <p className="text-xs text-stone-400">Lançar parcelas com datas de vencimento</p>
+                            </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-colors relative ${mensalidade ? 'bg-[#466250]' : 'bg-stone-300'}`}>
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${mensalidade ? 'left-6' : 'left-1'}`} />
+                        </div>
+                    </div>
+
+                    {/* Mensalidade Fields */}
+                    {mensalidade && (
+                        <div className="space-y-4 p-4 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-100 dark:border-stone-800">
+
+                                {/* Meses + valor + melhor data */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <InputLabel htmlFor="mensalidade_meses" value="Qtd. Meses" />
+                                    <TextInput
+                                        id="mensalidade_meses"
+                                        type="number"
+                                        min="1"
+                                        className="mt-1 block w-full"
+                                        value={data.mensalidade_meses}
+                                        onChange={(e) => setData('mensalidade_meses', e.target.value)}
+                                        placeholder="ex: 3"
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="melhor_data" value="Melhor data pgto." />
+                                    <TextInput
+                                        id="melhor_data"
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        className="mt-1 block w-full"
+                                        placeholder="Dia (1-31)"
+                                        value={melhorData ?? ''}
+                                        onChange={(e) => {
+                                            const v = parseInt(e.target.value);
+                                            setMelhorData(e.target.value === '' ? null : (v >= 1 && v <= 31 ? v : melhorData));
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Parcelas Preview */}
+                            {parcelas.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+                                        {parcelas.length} parcela{parcelas.length > 1 ? 's' : ''} gerada{parcelas.length > 1 ? 's' : ''}
+                                    </p>
+                                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                        {parcelas.map((p) => (
+                                            <div key={p.numero} className="flex items-center justify-between bg-white dark:bg-stone-900 px-3 py-2 rounded-lg border border-stone-100 dark:border-stone-800 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-5 h-5 rounded-full bg-[#466250]/10 text-[#466250] flex items-center justify-center text-[10px] font-bold">
+                                                        {p.numero}
+                                                    </span>
+                                                    <span className="text-stone-600 dark:text-stone-400">{p.data}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-[#466250]">R$ {p.valor}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setParcelas(prev => prev.map(x =>
+                                                            x.numero === p.numero ? { ...x, pago: !x.pago } : x
+                                                        ))}
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                                                            p.pago
+                                                                ? 'bg-emerald-100 text-emerald-700'
+                                                                : p.vencida
+                                                                    ? 'bg-red-100 text-red-600'
+                                                                    : 'bg-amber-100 text-amber-600'
+                                                        }`}
+                                                    >
+                                                        {p.pago ? 'Pago' : p.vencida ? 'Vencida' : 'Pendente'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-stone-400 mt-2 text-right">
+                                        Total: <span className="font-bold text-stone-600">
+                                            R$ {(parseFloat(data.price) * parcelas.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Notes */}
                     <div>
                         <InputLabel htmlFor="notes" value="Observações (Opcional)" />
                         <textarea
@@ -219,9 +384,9 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                         ></textarea>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <SecondaryButton onClick={onClose} type="button">Cancelar</SecondaryButton>
-                        <PrimaryButton disabled={processing}>Atribuir Pacote</PrimaryButton>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <SecondaryButton onClick={handleClose} type="button">Cancelar</SecondaryButton>
+                        <PrimaryButton disabled={processing}>Atribuir Plano</PrimaryButton>
                     </div>
                 </form>
             </div>

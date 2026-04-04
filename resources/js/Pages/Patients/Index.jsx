@@ -126,7 +126,7 @@ export default function Index({ patients, filters }) {
                                                     type="button"
                                                     onClick={() => openAssignPackage(patient)}
                                                     className="p-2 text-[#466250] hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors group"
-                                                    title="Atribuir Pacote"
+                                                    title="Atribuir Plano"
                                                 >
                                                     <span className="material-symbols-outlined text-sm font-variation-settings-fill group-hover:fill-1">inventory_2</span>
                                                 </button>

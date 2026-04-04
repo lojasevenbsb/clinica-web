@@ -16,6 +16,9 @@ class PatientPackage extends Model
         'end_date',
         'billing_day',
         'price',
+        'session_count',
+        'payment_type',
+        'payment_method',
         'status',
         'notes',
     ];

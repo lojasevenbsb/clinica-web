@@ -20,11 +20,11 @@ export default function Packages({ specialties }) {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Configurações de Pacotes" />
+            <Head title="Configurações de Planos" />
 
-            <SettingsLayout 
-                title="Configurações de Pacotes" 
-                subtitle="Gerencie os pacotes de sessões oferecidos por cada especialidade."
+            <SettingsLayout
+                title="Configurações de Planos"
+                subtitle="Gerencie os planos de sessões oferecidos por cada especialidade."
             >
                 <div className="bg-white dark:bg-stone-900 rounded-3xl shadow-sm border border-stone-200 dark:border-stone-800 overflow-hidden">
                     <div className="overflow-x-auto">
@@ -32,7 +32,7 @@ export default function Packages({ specialties }) {
                             <thead>
                                 <tr className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800">
                                     <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Especialidade</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Pacotes Ativos</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Planos Ativos</th>
                                     <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest text-right">Gerenciar</th>
                                 </tr>
                             </thead>
@@ -58,7 +58,7 @@ export default function Packages({ specialties }) {
                                                             </span>
                                                         ))
                                                     ) : (
-                                                        <span className="text-xs text-stone-400">Nenhum pacote</span>
+                                                        <span className="text-xs text-stone-400">Nenhum plano</span>
                                                     )}
                                                 </div>
                                             </td>

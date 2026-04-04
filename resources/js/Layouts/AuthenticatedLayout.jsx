@@ -75,7 +75,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 className={`flex items-center gap-3 px-8 py-2.5 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('settings.packages') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
                             >
                                 <span className="material-symbols-outlined text-sm" style={route().current('settings.packages') ? { fontVariationSettings: "'FILL' 1" } : {}}>inventory_2</span>
-                                <span className="font-manrope text-sm">Pacotes</span>
+                                <span className="font-manrope text-sm">Planos</span>
                             </Link>
                         </div>
                     </nav>

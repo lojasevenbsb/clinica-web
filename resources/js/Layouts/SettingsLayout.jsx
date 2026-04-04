@@ -31,7 +31,18 @@ export default function SettingsLayout({ children, title, subtitle }) {
                         }`}
                     >
                         <span className="material-symbols-outlined">inventory_2</span>
-                        Pacotes
+                        Planos
+                    </Link>
+                    <Link
+                        href={route('settings.payment')}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                            route().current('settings.payment')
+                                ? 'bg-[#466250] text-white shadow-lg shadow-primary/20'
+                                : 'text-stone-600 hover:bg-stone-100'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined">payments</span>
+                        Pagamentos
                     </Link>
                 </aside>
 

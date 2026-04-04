@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClinicHour;
+use App\Models\PaymentOption;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,6 +21,14 @@ class SettingsController extends Controller
     {
         return Inertia::render('Settings/Packages', [
             'specialties' => Specialty::with('packages')->orderBy('name')->get()
+        ]);
+    }
+
+    public function payment()
+    {
+        return Inertia::render('Settings/Payment', [
+            'methods' => PaymentOption::where('group', 'method')->orderBy('name')->get(),
+            'types'   => PaymentOption::where('group', 'type')->orderBy('name')->get(),
         ]);
     }
 

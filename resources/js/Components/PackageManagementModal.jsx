@@ -18,27 +18,7 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
         price: '',
         duration_months: '',
         billing_day: '',
-        start_date: '',
-        end_date: '',
     });
-
-    useEffect(() => {
-        if (data.start_date && data.duration_months) {
-            const startDate = new Date(data.start_date + 'T00:00:00');
-            const duration = parseInt(data.duration_months);
-            
-            if (!isNaN(startDate.getTime()) && !isNaN(duration)) {
-                const endDate = new Date(startDate);
-                endDate.setMonth(startDate.getMonth() + duration);
-                
-                // Format back to YYYY-MM-DD
-                const year = endDate.getFullYear();
-                const month = String(endDate.getMonth() + 1).padStart(2, '0');
-                const day = String(endDate.getDate()).padStart(2, '0');
-                setData('end_date', `${year}-${month}-${day}`);
-            }
-        }
-    }, [data.start_date, data.duration_months]);
 
     useEffect(() => {
         if (show && specialty) {
@@ -167,33 +147,6 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <InputLabel htmlFor="start_date" value="Início" />
-                                    <TextInput
-                                        id="start_date"
-                                        type="date"
-                                        className="mt-1 block w-full"
-                                        value={data.start_date}
-                                        onChange={(e) => setData('start_date', e.target.value)}
-                                        required
-                                    />
-                                    <InputError message={errors.start_date} className="mt-2" />
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="end_date" value="Término (Auto)" />
-                                    <TextInput
-                                        id="end_date"
-                                        type="date"
-                                        className="mt-1 block w-full bg-stone-50"
-                                        value={data.end_date}
-                                        onChange={(e) => setData('end_date', e.target.value)}
-                                        readOnly
-                                    />
-                                    <InputError message={errors.end_date} className="mt-2" />
-                                </div>
-                            </div>
-
                             <div>
                                 <InputLabel htmlFor="price" value="Valor Mensal (R$)" />
                                 <TextInput
@@ -252,12 +205,6 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                                                         <span className="flex items-center gap-1 text-[#466250]">
                                                             <span className="material-symbols-outlined text-xs">event_repeat</span>
                                                             Cobrança dia {pkg.billing_day}
-                                                        </span>
-                                                    )}
-                                                    {(pkg.start_date || pkg.end_date) && (
-                                                        <span className="flex items-center gap-1">
-                                                            <span className="material-symbols-outlined text-xs">calendar_today</span>
-                                                            {pkg.start_date ? new Date(pkg.start_date).toLocaleDateString('pt-BR') : '...'} - {pkg.end_date ? new Date(pkg.end_date).toLocaleDateString('pt-BR') : '...'}
                                                         </span>
                                                     )}
                                                 </div>

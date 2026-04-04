@@ -22,8 +22,6 @@ class PackageController extends Controller
             'price' => 'required|numeric|min:0',
             'duration_months' => 'nullable|integer|min:1',
             'billing_day' => 'nullable|integer|min:1|max:31',
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date',
         ]);
 
         $specialty->packages()->create($validated);

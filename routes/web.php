@@ -39,7 +39,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/packages', [\App\Http\Controllers\PackageController::class, 'index'])->name('index');
         Route::post('/packages', [\App\Http\Controllers\PackageController::class, 'store'])->name('store');
     });
-    Route::delete('/packages/{package}', [\App\Http\Controllers\PackageController::class, 'destroy'])->name('destroy');
+    Route::get('/packages', [\App\Http\Controllers\PackageController::class, 'index'])->name('packages.all');
+    Route::post('/packages', [\App\Http\Controllers\PackageController::class, 'store'])->name('packages.store_direct');
+    Route::put('/packages/{package}', [\App\Http\Controllers\PackageController::class, 'update'])->name('packages.update');
+    Route::delete('/packages/{package}', [\App\Http\Controllers\PackageController::class, 'destroy'])->name('packages.destroy');
 
     Route::get('/settings/agenda', [SettingsController::class, 'agenda'])->name('settings.agenda');
     Route::post('/settings/agenda', [SettingsController::class, 'updateAgenda'])->name('settings.agenda.update');
@@ -53,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/patients/{patient}/packages', [PatientPackageController::class, 'store'])->name('patients.packages.store');
     Route::get('/patients/{patient}/packages', [PatientPackageController::class, 'index'])->name('patients.packages.index');
     Route::get('/specialties-with-packages', [PatientPackageController::class, 'specialties'])->name('specialties.with_packages');
+    Route::get('/specialties-list', [\App\Http\Controllers\SpecialtyController::class, 'list'])->name('specialties.list');
 });
 
 Route::middleware('auth')->group(function () {

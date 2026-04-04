@@ -6,6 +6,7 @@ import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { useForm } from '@inertiajs/react';
+import axios from 'axios';
 
 export default function PackageManagementModal({ show, onClose, specialty }) {
     const [packages, setPackages] = useState([]);
@@ -26,8 +27,7 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
     const fetchPackages = async () => {
         setLoading(true);
         try {
-            const response = await fetch(route('packages.index', specialty.id));
-            const data = await response.json();
+            const { data } = await axios.get(route('packages.index', specialty.id));
             setPackages(data);
         } catch (error) {
             console.error('Error fetching packages:', error);

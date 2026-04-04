@@ -1,21 +1,88 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Head } from '@inertiajs/react';
-import { useState } from 'react';
-import PackageManagementModal from '@/Components/PackageManagementModal';
+import { useState, useRef, useEffect } from 'react';
+import TextInput from '@/Components/TextInput';
+import axios from 'axios';
 
-export default function Packages({ specialties }) {
-    const [managementModalShow, setManagementModalShow] = useState(false);
-    const [specialtyForManagement, setSpecialtyForManagement] = useState(null);
+export default function Packages({ packages: initialPackages, specialties }) {
+    const [packages, setPackages] = useState(initialPackages);
+    const [adding, setAdding] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
+    const [newPlan, setNewPlan] = useState({ name: '', price: '', specialty_id: '' });
+    const nameRef = useRef(null);
+    const editNameRef = useRef(null);
 
-    const openManagementModal = (specialty) => {
-        setSpecialtyForManagement(specialty);
-        setManagementModalShow(true);
+    useEffect(() => {
+        if (adding && nameRef.current) nameRef.current.focus();
+    }, [adding]);
+
+    useEffect(() => {
+        if (editingId && editNameRef.current) editNameRef.current.focus();
+    }, [editingId]);
+
+    const handleAdd = async (e) => {
+        e.preventDefault();
+        if (!newPlan.name.trim() || !newPlan.price) return;
+        setSaving(true);
+        try {
+            const { data: created } = await axios.post(route('packages.store_direct'), newPlan);
+            setPackages(prev => [...prev, created]);
+            setNewPlan({ name: '', price: '', specialty_id: '' });
+            setAdding(false);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const closeManagementModal = () => {
-        setManagementModalShow(false);
-        setSpecialtyForManagement(null);
+    const startEdit = (pkg) => {
+        setEditingId(pkg.id);
+        setEditData({
+            name: pkg.name,
+            price: pkg.price,
+            specialty_id: pkg.specialty_id || '',
+        });
+        setAdding(false);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditData({});
+    };
+
+    const handleUpdate = async (e, id) => {
+        e.preventDefault();
+        if (!editData.name.trim() || !editData.price) return;
+        setSaving(true);
+        try {
+            const { data: updated } = await axios.put(route('packages.update', id), editData);
+            setPackages(prev => prev.map(p => p.id === id ? updated : p));
+            cancelEdit();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm('Deseja excluir este plano?')) return;
+        try {
+            await axios.delete(route('packages.destroy', id));
+            setPackages(prev => prev.filter(p => p.id !== id));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const specialtyName = (id) => {
+        if (!id) return null;
+        const s = specialties?.find(s => String(s.id) === String(id));
+        return s ? s.name : null;
     };
 
     return (
@@ -23,68 +90,188 @@ export default function Packages({ specialties }) {
             <Head title="Configurações de Planos" />
 
             <SettingsLayout
-                title="Configurações de Planos"
-                subtitle="Gerencie os planos de sessões oferecidos por cada especialidade."
+                title="Planos"
+                subtitle="Gerencie os planos de sessões disponíveis."
             >
                 <div className="bg-white dark:bg-stone-900 rounded-3xl shadow-sm border border-stone-200 dark:border-stone-800 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800">
-                                    <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Especialidade</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Planos Ativos</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest text-right">Gerenciar</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                                {specialties.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="3" className="px-6 py-12 text-center text-stone-500">
-                                            Nenhuma especialidade cadastrada.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    specialties.map((specialty) => (
-                                        <tr key={specialty.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-stone-800 dark:text-stone-200">
-                                                {specialty.name}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {specialty.packages.length > 0 ? (
-                                                        specialty.packages.map(pkg => (
-                                                            <span key={pkg.id} className="text-[10px] px-2 py-0.5 bg-stone-100 dark:bg-stone-800 rounded font-medium text-stone-600">
-                                                                {pkg.name}
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-stone-400">Nenhum plano</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={() => openManagementModal(specialty)}
-                                                    className="bg-[#466250] text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-[#384f40] transition-all text-xs ml-auto"
-                                                >
-                                                    <span className="material-symbols-outlined text-sm">inventory_2</span>
-                                                    Gerenciar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#466250]">inventory_2</span>
+                        <h3 className="font-bold text-stone-800 dark:text-stone-200">Planos cadastrados</h3>
+                        <span className="ml-auto text-xs bg-stone-100 dark:bg-stone-800 text-stone-500 px-2 py-0.5 rounded-full font-medium">
+                            {packages.length}
+                        </span>
                     </div>
+
+                    {/* Column headers */}
+                    <div className="grid grid-cols-12 px-6 py-2 bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800 text-xs font-bold text-stone-400 uppercase tracking-widest">
+                        <span className="col-span-4">Especialidade</span>
+                        <span className="col-span-5">Nome</span>
+                        <span className="col-span-2 text-center">Valor (R$)</span>
+                        <span className="col-span-1" />
+                    </div>
+
+                    {/* List */}
+                    <div className="divide-y divide-stone-50 dark:divide-stone-800">
+                        {packages.length === 0 && !adding && (
+                            <p className="px-6 py-10 text-center text-stone-400 text-sm">Nenhum plano cadastrado.</p>
+                        )}
+
+                        {packages.map(pkg => editingId === pkg.id ? (
+                            /* Inline edit row */
+                            <form
+                                key={pkg.id}
+                                onSubmit={(e) => handleUpdate(e, pkg.id)}
+                                className="grid grid-cols-12 items-center gap-2 px-6 py-3 bg-[#466250]/5 border-l-4 border-[#466250]"
+                            >
+                                <div className="col-span-4">
+                                    <select
+                                        className="w-full text-sm border-stone-200 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 rounded-xl shadow-sm focus:border-[#466250] focus:ring-[#466250]"
+                                        value={editData.specialty_id}
+                                        onChange={(e) => setEditData(d => ({ ...d, specialty_id: e.target.value }))}
+                                    >
+                                        <option value="">Nenhuma</option>
+                                        {specialties?.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-span-5">
+                                    <TextInput
+                                        ref={editNameRef}
+                                        type="text"
+                                        className="w-full text-sm"
+                                        value={editData.name}
+                                        onChange={(e) => setEditData(d => ({ ...d, name: e.target.value }))}
+                                        onKeyDown={(e) => e.key === 'Escape' && cancelEdit()}
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <TextInput
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        className="w-full text-sm text-center"
+                                        value={editData.price}
+                                        onChange={(e) => setEditData(d => ({ ...d, price: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="col-span-12 flex gap-2 justify-end pt-1">
+                                    <button
+                                        type="submit"
+                                        disabled={saving || !editData.name?.trim() || !editData.price}
+                                        className="px-4 py-2 bg-[#466250] text-white text-sm font-bold rounded-xl hover:bg-[#384f40] transition-colors disabled:opacity-40"
+                                    >
+                                        {saving ? 'Salvando...' : 'Salvar'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={cancelEdit}
+                                        className="px-3 py-2 text-stone-400 hover:text-stone-600 text-sm rounded-xl hover:bg-stone-100 transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            /* Normal row */
+                            <div key={pkg.id} className="grid grid-cols-12 items-center px-6 py-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors group">
+                                <span className="col-span-4 text-xs text-stone-400">
+                                    {specialtyName(pkg.specialty_id) || <span className="italic text-stone-300">—</span>}
+                                </span>
+                                <span className="col-span-5 text-sm font-medium text-stone-800 dark:text-stone-200">{pkg.name}</span>
+                                <span className="col-span-2 text-sm font-bold text-[#466250] text-center">
+                                    {parseFloat(pkg.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                                <div className="col-span-1 flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => startEdit(pkg)}
+                                        className="p-1.5 text-stone-400 hover:text-[#466250] transition-colors rounded-lg"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(pkg.id)}
+                                        className="p-1.5 text-stone-300 hover:text-red-500 transition-colors rounded-lg"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Inline add form */}
+                        {adding && (
+                            <form onSubmit={handleAdd} className="grid grid-cols-12 items-center gap-2 px-6 py-3 bg-[#466250]/5 border-t border-[#466250]/10">
+                                <div className="col-span-4">
+                                    <select
+                                        className="w-full text-sm border-stone-200 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 rounded-xl shadow-sm focus:border-[#466250] focus:ring-[#466250]"
+                                        value={newPlan.specialty_id}
+                                        onChange={(e) => setNewPlan(p => ({ ...p, specialty_id: e.target.value }))}
+                                    >
+                                        <option value="">Selecione a especialidade</option>
+                                        {specialties?.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-span-5">
+                                    <TextInput
+                                        ref={nameRef}
+                                        type="text"
+                                        className="w-full text-sm"
+                                        placeholder="Nome do plano..."
+                                        value={newPlan.name}
+                                        onChange={(e) => setNewPlan(p => ({ ...p, name: e.target.value }))}
+                                        onKeyDown={(e) => e.key === 'Escape' && setAdding(false)}
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <TextInput
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        className="w-full text-sm text-center"
+                                        placeholder="Valor"
+                                        value={newPlan.price}
+                                        onChange={(e) => setNewPlan(p => ({ ...p, price: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="col-span-12 flex gap-2 justify-end pt-1">
+                                    <button
+                                        type="submit"
+                                        disabled={saving || !newPlan.name.trim() || !newPlan.price}
+                                        className="px-4 py-2 bg-[#466250] text-white text-sm font-bold rounded-xl hover:bg-[#384f40] transition-colors disabled:opacity-40"
+                                    >
+                                        {saving ? 'Salvando...' : 'Salvar'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdding(false)}
+                                        className="px-3 py-2 text-stone-400 hover:text-stone-600 text-sm rounded-xl hover:bg-stone-100 transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    {!adding && !editingId && (
+                        <div className="px-6 py-3 border-t border-stone-100 dark:border-stone-800">
+                            <button
+                                onClick={() => setAdding(true)}
+                                className="flex items-center gap-2 text-sm text-[#466250] font-bold hover:bg-[#466250]/5 px-3 py-2 rounded-xl transition-colors w-full"
+                            >
+                                <span className="material-symbols-outlined text-sm">add</span>
+                                Adicionar plano
+                            </button>
+                        </div>
+                    )}
                 </div>
             </SettingsLayout>
-
-            <PackageManagementModal 
-                show={managementModalShow} 
-                onClose={closeManagementModal} 
-                specialty={specialtyForManagement} 
-            />
         </AuthenticatedLayout>
     );
 }

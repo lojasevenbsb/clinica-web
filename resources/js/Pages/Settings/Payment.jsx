@@ -1,31 +1,32 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Head } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import TextInput from '@/Components/TextInput';
-import PrimaryButton from '@/Components/PrimaryButton';
+import axios from 'axios';
 
 function PaymentGroup({ title, group, items: initialItems }) {
     const [items, setItems] = useState(initialItems);
+    const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [saving, setSaving] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (adding && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [adding]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
         if (!newName.trim()) return;
         setSaving(true);
         try {
-            const res = await fetch(route('payment_options.store'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                },
-                body: JSON.stringify({ group, name: newName.trim() }),
-            });
-            const created = await res.json();
+            const { data: created } = await axios.post(route('payment_options.store'), { group, name: newName.trim() });
             setItems(prev => [...prev, created]);
             setNewName('');
+            setAdding(false);
         } catch (err) {
             console.error(err);
         } finally {
@@ -33,13 +34,15 @@ function PaymentGroup({ title, group, items: initialItems }) {
         }
     };
 
+    const handleCancel = () => {
+        setNewName('');
+        setAdding(false);
+    };
+
     const handleDelete = async (id) => {
         if (!confirm('Deseja remover esta opção?')) return;
         try {
-            await fetch(route('payment_options.destroy', id), {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-            });
+            await axios.delete(route('payment_options.destroy', id));
             setItems(prev => prev.filter(i => i.id !== id));
         } catch (err) {
             console.error(err);
@@ -48,6 +51,7 @@ function PaymentGroup({ title, group, items: initialItems }) {
 
     return (
         <div className="bg-white dark:bg-stone-900 rounded-3xl shadow-sm border border-stone-200 dark:border-stone-800 overflow-hidden">
+            {/* Header */}
             <div className="px-6 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#466250]">
                     {group === 'method' ? 'payments' : 'category'}
@@ -60,7 +64,7 @@ function PaymentGroup({ title, group, items: initialItems }) {
 
             {/* List */}
             <div className="divide-y divide-stone-50 dark:divide-stone-800">
-                {items.length === 0 ? (
+                {items.length === 0 && !adding ? (
                     <p className="px-6 py-8 text-center text-stone-400 text-sm">Nenhuma opção cadastrada.</p>
                 ) : (
                     items.map(item => (
@@ -75,24 +79,49 @@ function PaymentGroup({ title, group, items: initialItems }) {
                         </div>
                     ))
                 )}
+
+                {/* Inline add form */}
+                {adding && (
+                    <form onSubmit={handleAdd} className="px-6 py-3 flex items-center gap-2 bg-[#466250]/5 border-t border-[#466250]/10">
+                        <TextInput
+                            ref={inputRef}
+                            type="text"
+                            className="flex-1 text-sm"
+                            placeholder={`Nome da ${title.toLowerCase().replace('s de pagamento', '').trim()}...`}
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Escape' && handleCancel()}
+                        />
+                        <button
+                            type="submit"
+                            disabled={saving || !newName.trim()}
+                            className="px-4 py-2 bg-[#466250] text-white text-sm font-bold rounded-xl hover:bg-[#384f40] transition-colors disabled:opacity-40"
+                        >
+                            {saving ? 'Salvando...' : 'Salvar'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCancel}
+                            className="px-3 py-2 text-stone-400 hover:text-stone-600 text-sm rounded-xl hover:bg-stone-100 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    </form>
+                )}
             </div>
 
-            {/* Add form */}
-            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-800/50 border-t border-stone-100 dark:border-stone-800">
-                <form onSubmit={handleAdd} className="flex gap-2">
-                    <TextInput
-                        type="text"
-                        className="flex-1 text-sm"
-                        placeholder={`Nova ${title.toLowerCase()}...`}
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                    />
-                    <PrimaryButton type="submit" disabled={saving} className="gap-1">
+            {/* Footer */}
+            {!adding && (
+                <div className="px-6 py-3 border-t border-stone-100 dark:border-stone-800">
+                    <button
+                        onClick={() => setAdding(true)}
+                        className="flex items-center gap-2 text-sm text-[#466250] font-bold hover:bg-[#466250]/5 px-3 py-2 rounded-xl transition-colors w-full"
+                    >
                         <span className="material-symbols-outlined text-sm">add</span>
-                        Adicionar
-                    </PrimaryButton>
-                </form>
-            </div>
+                        Adicionar {group === 'method' ? 'forma' : 'tipo'}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

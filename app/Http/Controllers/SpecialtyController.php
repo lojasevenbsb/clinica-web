@@ -8,6 +8,11 @@ use Inertia\Inertia;
 
 class SpecialtyController extends Controller
 {
+    public function list()
+    {
+        return response()->json(Specialty::with('packages')->orderBy('name')->get());
+    }
+
     public function index()
     {
         return Inertia::render('Specialties/Index', [

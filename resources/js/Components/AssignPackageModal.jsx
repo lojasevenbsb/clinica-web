@@ -6,10 +6,9 @@ import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { useForm } from '@inertiajs/react';
+import axios from 'axios';
 
 export default function AssignPackageModal({ show, onClose, patient }) {
-    const [specialties, setSpecialties] = useState([]);
-    const [selectedSpecialty, setSelectedSpecialty] = useState(null);
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [mensalidade, setMensalidade] = useState(false);
@@ -32,40 +31,31 @@ export default function AssignPackageModal({ show, onClose, patient }) {
 
     useEffect(() => {
         if (show) {
-            fetchSpecialties();
+            fetchAllPackages();
             fetchPaymentOptions();
         }
     }, [show]);
 
-    const fetchPaymentOptions = async () => {
-        try {
-            const res = await fetch(route('payment_options.index'));
-            const options = await res.json();
-            setPaymentMethods(options.filter(o => o.group === 'method'));
-            setPaymentTypes(options.filter(o => o.group === 'type'));
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const fetchSpecialties = async () => {
+    const fetchAllPackages = async () => {
         setLoading(true);
         try {
-            const response = await fetch(route('specialties.with_packages'));
-            const json = await response.json();
-            setSpecialties(json);
-        } catch (error) {
-            console.error('Error fetching specialties:', error);
+            const { data } = await axios.get(route('packages.all'));
+            setPackages(data);
+        } catch (err) {
+            console.error('Error fetching packages:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSpecialtyChange = (specialtyId) => {
-        const specialty = specialties.find(s => s.id == specialtyId);
-        setSelectedSpecialty(specialty);
-        setPackages(specialty ? specialty.packages : []);
-        setData('package_id', '');
+    const fetchPaymentOptions = async () => {
+        try {
+            const { data: options } = await axios.get(route('payment_options.index'));
+            setPaymentMethods(options.filter(o => o.group === 'method'));
+            setPaymentTypes(options.filter(o => o.group === 'type'));
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const handlePackageChange = (packageId) => {
@@ -118,7 +108,6 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         setMensalidade(false);
         setParcelas([]);
         setMelhorData(null);
-        setSelectedSpecialty(null);
         setPackages([]);
         onClose();
     };
@@ -152,22 +141,6 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                 </div>
 
                 <form onSubmit={submit} className="space-y-5">
-                    {/* Specialty */}
-                    <div>
-                        <InputLabel htmlFor="specialty_id" value="Especialidade" />
-                        <select
-                            id="specialty_id"
-                            className="mt-1 block w-full border-stone-200 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 focus:border-primary focus:ring-primary rounded-xl shadow-sm"
-                            onChange={(e) => handleSpecialtyChange(e.target.value)}
-                            required
-                        >
-                            <option value="">Selecione uma especialidade</option>
-                            {specialties.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
                     {/* Package */}
                     <div>
                         <InputLabel htmlFor="package_id" value="Plano" />
@@ -176,13 +149,13 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                             className="mt-1 block w-full border-stone-200 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300 focus:border-primary focus:ring-primary rounded-xl shadow-sm"
                             value={data.package_id}
                             onChange={(e) => handlePackageChange(e.target.value)}
-                            disabled={!selectedSpecialty}
+                            disabled={loading}
                             required
                         >
-                            <option value="">Selecione um plano</option>
+                            <option value="">{loading ? 'Carregando...' : 'Selecione um plano'}</option>
                             {packages.map(p => (
                                 <option key={p.id} value={p.id}>
-                                    {p.name} ({p.session_count ? `${p.session_count} sessões` : 'Livre'})
+                                    {p.specialty_name ? `${p.specialty_name} — ${p.name}` : p.name}
                                 </option>
                             ))}
                         </select>

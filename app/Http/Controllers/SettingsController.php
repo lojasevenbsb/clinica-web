@@ -20,7 +20,8 @@ class SettingsController extends Controller
     public function packages()
     {
         return Inertia::render('Settings/Packages', [
-            'specialties' => Specialty::with('packages')->orderBy('name')->get()
+            'packages'    => \App\Models\Package::orderBy('name')->get(),
+            'specialties' => Specialty::orderBy('name')->get(['id', 'name']),
         ]);
     }
 

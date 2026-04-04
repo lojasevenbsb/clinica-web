@@ -33,6 +33,6 @@ class PatientPackageController extends Controller
 
     public function specialties()
     {
-        return Specialty::with('packages')->has('packages')->get();
+        return Specialty::with('packages')->orderBy('name')->get();
     }
 }

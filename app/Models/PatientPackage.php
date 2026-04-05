@@ -20,6 +20,7 @@ class PatientPackage extends Model
         'payment_type',
         'payment_method',
         'status',
+        'payment_status',
         'notes',
     ];
 
@@ -31,5 +32,10 @@ class PatientPackage extends Model
     public function package()
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function installments()
+    {
+        return $this->hasMany(PatientPackageInstallment::class)->orderBy('numero');
     }
 }

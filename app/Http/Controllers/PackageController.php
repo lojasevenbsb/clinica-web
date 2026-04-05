@@ -28,6 +28,7 @@ class PackageController extends Controller
             'name'          => 'required|string|max:255',
             'session_count' => 'nullable|integer|min:1',
             'price'         => 'required|numeric|min:0',
+            'specialty_id'  => 'nullable|exists:specialties,id',
         ]);
 
         if ($specialty) {
@@ -45,11 +46,12 @@ class PackageController extends Controller
             'name'          => 'required|string|max:255',
             'session_count' => 'nullable|integer|min:1',
             'price'         => 'required|numeric|min:0',
+            'specialty_id'  => 'nullable|exists:specialties,id',
         ]);
 
         $package->update($validated);
 
-        return response()->json($package->fresh());
+        return response()->json($package->fresh()->load('specialty'));
     }
 
     public function destroy(Package $package)

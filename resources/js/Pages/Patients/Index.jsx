@@ -5,22 +5,28 @@ import Modal from '@/Components/Modal';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import AssignPackageModal from '@/Components/AssignPackageModal';
+import PatientPlansModal from '@/Components/PatientPlansModal';
 
 export default function Index({ patients, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [patientToDelete, setPatientToDelete] = useState(null);
-    const [assigningPackage, setAssigningPackage] = useState(false);
-    const [selectedPatient, setSelectedPatient] = useState(null);
+    const [activePatient, setActivePatient] = useState(null);
+    const [modal, setModal] = useState(null); // 'plans' | 'assign' | null
 
-    const openAssignPackage = (patient) => {
-        setSelectedPatient(patient);
-        setAssigningPackage(true);
+    const openPlans = (patient) => {
+        setActivePatient(patient);
+        setModal('plans');
     };
 
-    const closeAssignPackage = () => {
-        setAssigningPackage(false);
-        setSelectedPatient(null);
+    const openAssignPackage = (patient) => {
+        setActivePatient(patient);
+        setModal('assign');
+    };
+
+    const closeModal_ = () => {
+        setModal(null);
+        setActivePatient(null);
     };
 
     const confirmDeletion = (patient) => {
@@ -122,21 +128,21 @@ export default function Index({ patients, filters }) {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button 
+                                                <button
                                                     type="button"
-                                                    onClick={() => openAssignPackage(patient)}
-                                                    className="p-2 text-[#466250] hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors group"
-                                                    title="Atribuir Plano"
+                                                    onClick={() => openPlans(patient)}
+                                                    className="p-2 text-[#466250] hover:bg-[#466250]/10 rounded-lg transition-colors"
+                                                    title="Ver Planos"
                                                 >
-                                                    <span className="material-symbols-outlined text-sm font-variation-settings-fill group-hover:fill-1">inventory_2</span>
+                                                    <span className="material-symbols-outlined text-sm">inventory_2</span>
                                                 </button>
-                                                <Link href={route('patients.edit', patient.id)} className="p-2 text-stone-400 hover:text-primary transition-colors">
+                                                <Link href={route('patients.edit', patient.id)} className="p-2 text-stone-400 hover:text-primary transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800">
                                                     <span className="material-symbols-outlined text-sm">edit</span>
                                                 </Link>
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => confirmDeletion(patient)}
-                                                    className="p-2 text-stone-400 hover:text-red-500 transition-colors"
+                                                    className="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800"
                                                 >
                                                     <span className="material-symbols-outlined text-sm">delete</span>
                                                 </button>
@@ -175,10 +181,20 @@ export default function Index({ patients, filters }) {
                 </div>
             </Modal>
 
-            <AssignPackageModal 
-                show={assigningPackage} 
-                onClose={closeAssignPackage} 
-                patient={selectedPatient} 
+            <PatientPlansModal
+                show={modal === 'plans'}
+                onClose={closeModal_}
+                patient={activePatient}
+                onAssignNew={(patient) => {
+                    setActivePatient(patient);
+                    setModal('assign');
+                }}
+            />
+
+            <AssignPackageModal
+                show={modal === 'assign'}
+                onClose={closeModal_}
+                patient={activePatient}
             />
         </AuthenticatedLayout>
     );

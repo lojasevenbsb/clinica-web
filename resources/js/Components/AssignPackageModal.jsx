@@ -5,7 +5,6 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
-import { useForm } from '@inertiajs/react';
 import axios from 'axios';
 
 export default function AssignPackageModal({ show, onClose, patient }) {
@@ -17,7 +16,9 @@ export default function AssignPackageModal({ show, onClose, patient }) {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [paymentTypes, setPaymentTypes] = useState([]);
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [data, setDataState] = useState({
         package_id: '',
         start_date: new Date().toISOString().split('T')[0],
         price: '',
@@ -26,8 +27,29 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         payment_method: '',
         notes: '',
         mensalidade_meses: '',
-        mensalidade_valor: '',
     });
+
+    const setData = (keyOrObj, value) => {
+        if (typeof keyOrObj === 'object') {
+            setDataState(keyOrObj);
+        } else {
+            setDataState(prev => ({ ...prev, [keyOrObj]: value }));
+        }
+    };
+
+    const reset = () => {
+        setDataState({
+            package_id: '',
+            start_date: new Date().toISOString().split('T')[0],
+            price: '',
+            session_count: '',
+            payment_type: '',
+            payment_method: '',
+            notes: '',
+            mensalidade_meses: '',
+        });
+        setErrors({});
+    };
 
     useEffect(() => {
         if (show) {
@@ -64,7 +86,6 @@ export default function AssignPackageModal({ show, onClose, patient }) {
             ...data,
             package_id: packageId,
             price: pkg?.price || '',
-            session_count: pkg?.session_count || '',
         });
     };
 
@@ -93,8 +114,11 @@ export default function AssignPackageModal({ show, onClose, patient }) {
             const venc = new Date(start.getFullYear(), start.getMonth() + i, dueDay);
             geradas.push({
                 numero: i + 1,
+                due_date: venc.toISOString().split('T')[0],
                 data: venc.toLocaleDateString('pt-BR'),
+                amount: valor,
                 valor: valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                paid: false,
                 pago: false,
                 vencida: venc < hoje,
             });
@@ -112,17 +136,29 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         onClose();
     };
 
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault();
-        post(route('patients.packages.store', patient.id), {
-            onSuccess: () => {
-                reset();
-                setMensalidade(false);
-                setParcelas([]);
-                setMelhorData(null);
-                onClose();
-            },
-        });
+        setProcessing(true);
+        setErrors({});
+        try {
+            await axios.post(route('patients.packages.store', patient.id), {
+                ...data,
+                installments: mensalidade && parcelas.length > 0
+                    ? parcelas.map(p => ({ numero: p.numero, due_date: p.due_date, amount: p.amount, paid: p.paid }))
+                    : [],
+            });
+            reset();
+            setMensalidade(false);
+            setParcelas([]);
+            setMelhorData(null);
+            onClose();
+        } catch (err) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            }
+        } finally {
+            setProcessing(false);
+        }
     };
 
     if (!patient) return null;
@@ -319,7 +355,7 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                                                     <button
                                                         type="button"
                                                         onClick={() => setParcelas(prev => prev.map(x =>
-                                                            x.numero === p.numero ? { ...x, pago: !x.pago } : x
+                                                            x.numero === p.numero ? { ...x, pago: !x.pago, paid: !x.paid } : x
                                                         ))}
                                                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
                                                             p.pago

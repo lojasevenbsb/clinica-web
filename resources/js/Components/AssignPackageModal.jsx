@@ -23,6 +23,7 @@ export default function AssignPackageModal({ show, onClose, patient }) {
     const [data, setDataState] = useState({
         package_id: '',
         start_date: new Date().toISOString().split('T')[0],
+        end_date: '',
         price: '',
         session_count: '',
         payment_type: '',
@@ -43,6 +44,7 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         setDataState({
             package_id: '',
             start_date: new Date().toISOString().split('T')[0],
+            end_date: '',
             price: '',
             session_count: '',
             payment_type: '',
@@ -218,18 +220,32 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                         <InputError message={errors.package_id} className="mt-2" />
                     </div>
 
-                    {/* Start date + sessions + price */}
-                    <div>
-                        <InputLabel htmlFor="start_date" value="Data de Início" />
-                        <TextInput
-                            id="start_date"
-                            type="date"
-                            className="mt-1 block w-full"
-                            value={data.start_date}
-                            onChange={(e) => setData('start_date', e.target.value)}
-                            required
-                        />
-                        <InputError message={errors.start_date} className="mt-2" />
+                    {/* Start date + End date */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel htmlFor="start_date" value="Data de Início" />
+                            <TextInput
+                                id="start_date"
+                                type="date"
+                                className="mt-1 block w-full"
+                                value={data.start_date}
+                                onChange={(e) => setData('start_date', e.target.value)}
+                                required
+                            />
+                            <InputError message={errors.start_date} className="mt-2" />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="end_date" value="Data de Término" />
+                            <TextInput
+                                id="end_date"
+                                type="date"
+                                className="mt-1 block w-full"
+                                value={data.end_date}
+                                onChange={(e) => setData('end_date', e.target.value)}
+                                min={data.start_date || undefined}
+                            />
+                            <InputError message={errors.end_date} className="mt-2" />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -161,15 +161,13 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         }
     };
 
-    if (!patient) return null;
-
     return (
-        <Modal show={show} onClose={handleClose} maxWidth="lg">
+        <Modal show={show && !!patient} onClose={handleClose} maxWidth="lg">
             <div className="p-8">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-[#466250]">Atribuir Plano</h2>
-                        <p className="text-stone-500">Selecione um plano para <span className="font-bold text-stone-900">{patient.name}</span></p>
+                        <p className="text-stone-500">Selecione um plano para <span className="font-bold text-stone-900">{patient?.name}</span></p>
                     </div>
                     <button onClick={handleClose} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
                         <span className="material-symbols-outlined">close</span>

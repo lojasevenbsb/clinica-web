@@ -70,16 +70,14 @@ export default function PatientPlansModal({ show, onClose, patient, onAssignNew 
     const active   = plans.filter(p => p.status === 'active');
     const finished = plans.filter(p => p.status !== 'active');
 
-    if (!patient) return null;
-
     return (
-        <Modal show={show} onClose={handleClose} maxWidth="lg">
+        <Modal show={show && !!patient} onClose={handleClose} maxWidth="lg">
             <div className="p-8">
                 <div className="flex items-start justify-between mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-[#466250]">Planos do Paciente</h2>
                         <p className="text-stone-500 mt-0.5">
-                            <span className="font-bold text-stone-800">{patient.name}</span>
+                            <span className="font-bold text-stone-800">{patient?.name}</span>
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -159,11 +157,11 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [editData, setEditData] = useState({});
-    const [localInstallments, setLocalInstallments] = useState(localInstallments || []);
+    const [localInstallments, setLocalInstallments] = useState(pp.installments || []);
 
     useEffect(() => {
-        setLocalInstallments(localInstallments || []);
-    }, [localInstallments]);
+        setLocalInstallments(pp.installments || []);
+    }, [pp.installments]);
 
     const { label: stLabel, cls: stCls } = statusLabel(pp.status);
     const { label: psLabel, cls: psCls } = paymentStatusLabel(pp.payment_status);

@@ -32,6 +32,26 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     const [availableHours, setAvailableHours] = useState([]);
     const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
     const hasProfessionalAndDate = Boolean(data.professional_id) && Boolean(data.date);
+    const selectedSpecialty = specialties.find(s => String(s.id) === String(data.specialty_id));
+    const selectedDurationMinutes = Number(selectedSpecialty?.duration_minutes) || 30;
+    const SLOT_INTERVAL_MINUTES = 30;
+
+    const parseTimeToMinutes = (value) => {
+        if (!value) return Number.NaN;
+
+        const [hourPart, minutePart] = String(value).split(':');
+        const hours = Number.parseInt(hourPart, 10);
+        const minutes = Number.parseInt(minutePart, 10);
+
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) return Number.NaN;
+        return (hours * 60) + minutes;
+    };
+
+    const minutesToHour = (totalMinutes) => {
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    };
 
     useEffect(() => {
         if (!data.date || !data.professional_id || data.professional_id === 'all') {
@@ -49,26 +69,37 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
         if (config && config.is_open) {
             setIsProfessionalWorking(true);
-            const start = parseInt(config.open_time.split(':')[0]);
-            const end = parseInt(config.close_time.split(':')[0]);
+            const startMinutes = parseTimeToMinutes(config.open_time);
+            const closeMinutes = parseTimeToMinutes(config.close_time);
+            const lastPossibleStart = closeMinutes - selectedDurationMinutes;
 
             const slots = [];
-            for (let h = start; h < end; h++) {
-                const hourStr = h.toString().padStart(2, '0');
-                slots.push(`${hourStr}:00`);
-                slots.push(`${hourStr}:30`);
+            if (
+                !Number.isNaN(startMinutes)
+                && !Number.isNaN(closeMinutes)
+                && startMinutes < closeMinutes
+                && lastPossibleStart >= startMinutes
+            ) {
+                for (let minute = startMinutes; minute <= lastPossibleStart; minute += SLOT_INTERVAL_MINUTES) {
+                    slots.push(minutesToHour(minute));
+                }
             }
+
+            if (appointment && data.hour && !slots.includes(data.hour)) {
+                slots.unshift(data.hour);
+            }
+
             setAvailableHours(slots);
 
             // Only reset the hour if it's not in the slots AND we are not initializing for an edit
             if (!slots.includes(data.hour) && !appointment) {
-                setData('hour', slots[0] || '08:00');
+                setData('hour', slots[0] || '');
             }
         } else {
             setIsProfessionalWorking(false);
             setAvailableHours([]);
         }
-    }, [data.date, data.professional_id, professionals, professionalHours]);
+    }, [data.date, data.professional_id, professionals, professionalHours, selectedDurationMinutes, appointment]);
 
     useEffect(() => {
         if (show) {
@@ -138,9 +169,6 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     const filteredPackages = data.specialty_id
         ? packages.filter(pkg => String(pkg.specialty_id) === String(data.specialty_id))
         : [];
-
-    const selectedSpecialty = specialties.find(s => String(s.id) === String(data.specialty_id));
-    const selectedDurationMinutes = selectedSpecialty?.duration_minutes || 30;
 
     const parseServerDateTime = (value) => {
         if (!value) return null;
@@ -414,9 +442,12 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                     onChange={(e) => setData('hour', e.target.value)}
                                     required
                                 >
+                                    {availableHours.length === 0 && (
+                                        <option value="">Sem horários disponíveis</option>
+                                    )}
                                     {availableHours.map(h => (
-                                        <option key={h} value={h} disabled={isHourOccupied(h)}>
-                                            {h}{isHourOccupied(h) ? ' (indisponível)' : ''}
+                                        <option key={h} value={h}>
+                                            {h}
                                         </option>
                                     ))}
                                 </select>

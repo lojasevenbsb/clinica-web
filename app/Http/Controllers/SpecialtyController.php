@@ -29,7 +29,7 @@ class SpecialtyController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:specialties,name',
-            'duration_minutes' => 'required|integer|min:1|max:480',
+            'color' => 'required|string|max:7',
         ]);
 
         Specialty::create($validated);
@@ -48,7 +48,7 @@ class SpecialtyController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:specialties,name,' . $specialty->id,
-            'duration_minutes' => 'required|integer|min:1|max:480',
+            'color' => 'required|string|max:7',
         ]);
 
         $specialty->update($validated);
@@ -58,7 +58,6 @@ class SpecialtyController extends Controller
 
     public function destroy(Specialty $specialty)
     {
-        // Add check if specialty is in use by any professional could be good, but for now we delete it
         $specialty->delete();
 
         return redirect()->route('specialties.index')->with('success', 'Especialidade excluída com sucesso!');

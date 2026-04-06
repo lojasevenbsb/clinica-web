@@ -5,10 +5,16 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 
+const PRESET_COLORS = [
+    '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
+    '#f97316', '#eab308', '#22c55e', '#14b8a6',
+    '#06b6d4', '#3b82f6', '#a855f7', '#f43f5e',
+];
+
 export default function Edit({ specialty }) {
-    const { data, setData, patch, processing, errors, reset } = useForm({
+    const { data, setData, patch, processing, errors } = useForm({
         name: specialty.name,
-        duration_minutes: specialty.duration_minutes,
+        color: specialty.color || '#6366f1',
     });
 
     const submit = (e) => {
@@ -46,19 +52,34 @@ export default function Edit({ specialty }) {
                     </div>
 
                     <div>
-                        <InputLabel htmlFor="duration_minutes" value="Duração (em minutos)" />
-                        <TextInput
-                            id="duration_minutes"
-                            type="number"
-                            name="duration_minutes"
-                            value={data.duration_minutes}
-                            className="mt-1 block w-full"
-                            onChange={(e) => setData('duration_minutes', e.target.value)}
-                            required
-                            min="1"
-                            max="480"
-                        />
-                        <InputError message={errors.duration_minutes} className="mt-2" />
+                        <InputLabel value="Cor da Especialidade" />
+                        <div className="mt-2 flex flex-wrap gap-2 items-center">
+                            {PRESET_COLORS.map(color => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setData('color', color)}
+                                    className="w-8 h-8 rounded-full transition-transform hover:scale-110"
+                                    style={{
+                                        backgroundColor: color,
+                                        outline: data.color === color ? `3px solid ${color}` : 'none',
+                                        outlineOffset: '2px',
+                                    }}
+                                />
+                            ))}
+                            <input
+                                type="color"
+                                value={data.color}
+                                onChange={(e) => setData('color', e.target.value)}
+                                className="w-8 h-8 rounded-full cursor-pointer border border-stone-200"
+                                title="Cor personalizada"
+                            />
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full border border-stone-200" style={{ backgroundColor: data.color }} />
+                            <span className="text-sm text-stone-500">{data.color}</span>
+                        </div>
+                        <InputError message={errors.color} className="mt-2" />
                     </div>
 
                     <div className="flex items-center justify-end mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">

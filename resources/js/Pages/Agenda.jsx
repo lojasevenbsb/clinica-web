@@ -31,13 +31,6 @@ function MonthCalendar({ selectedDate, monthAppointments, onDayClick, onPrevMont
         byDate[key].push(app);
     });
 
-    const statusColor = (status) => ({
-        confirmado: 'bg-emerald-500',
-        pendente:   'bg-amber-400',
-        cancelado:  'bg-red-400',
-        atendido:   'bg-stone-400',
-    }[status] ?? 'bg-amber-400');
-
     const weekLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
     return (
@@ -84,12 +77,13 @@ function MonthCalendar({ selectedDate, monthAppointments, onDayClick, onPrevMont
                             </span>
                             {visible.map(app => (
                                 <div key={app.id}
-                                    className="flex items-center gap-1 text-[10px] font-medium text-stone-700 bg-stone-100 rounded-md px-1.5 py-0.5 truncate"
+                                    className="flex items-center gap-1 text-[10px] font-medium rounded-md px-1.5 py-0.5 truncate"
+                                    style={{ backgroundColor: (app.specialty?.color || '#6366f1') + '20', color: app.specialty?.color || '#6366f1' }}
                                     title={`${app.patient?.name} — ${app.start_time.substring(11, 16)}`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusColor(app.status)}`} />
+                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: app.specialty?.color || '#6366f1' }} />
                                     <span className="truncate">{app.patient?.name}</span>
-                                    <span className="flex-shrink-0 text-stone-400">{app.start_time.substring(11, 16)}</span>
+                                    <span className="flex-shrink-0 opacity-60">{app.start_time.substring(11, 16)}</span>
                                 </div>
                             ))}
                             {extra > 0 && <span className="text-[10px] text-primary font-bold pl-1">+{extra} mais</span>}
@@ -100,11 +94,6 @@ function MonthCalendar({ selectedDate, monthAppointments, onDayClick, onPrevMont
 
             {/* Legend */}
             <div className="flex items-center gap-4 px-6 py-3 border-t border-outline-variant/20 bg-stone-50/50">
-                {[['confirmado','bg-emerald-500'],['pendente','bg-amber-400'],['cancelado','bg-red-400'],['atendido','bg-stone-400']].map(([label, cls]) => (
-                    <span key={label} className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium capitalize">
-                        <span className={`w-2 h-2 rounded-full ${cls}`} /> {label}
-                    </span>
-                ))}
                 <button onClick={onNewAppointment} className="ml-auto flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline">
                     <span className="material-symbols-outlined text-sm">add_circle</span>
                     Novo agendamento
@@ -117,7 +106,7 @@ function MonthCalendar({ selectedDate, monthAppointments, onDayClick, onPrevMont
 /* ─────────────────────────────────────────
    All Professionals Grid (day view)
 ───────────────────────────────────────── */
-function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDate, onNewAppointment, onEditAppointment, onDeleteAppointment }) {
+function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDate, onNewAppointment, onEditAppointment, onDeleteAppointment, slotInterval }) {
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
@@ -142,32 +131,34 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
     const startHour = Math.min(...workingProfs.map(p => parseInt(p.day_hours.open_time.split(':')[0])));
     const endHour   = Math.max(...workingProfs.map(p => parseInt(p.day_hours.close_time.split(':')[0])));
 
-    const hours = [];
-    for (let h = startHour; h < endHour; h++) hours.push(h);
+    // Generate slots based on slotInterval (in minutes)
+    const slots = [];
+    const totalMinutes = (endHour - startHour) * 60;
+    for (let m = 0; m < totalMinutes; m += slotInterval) {
+        const absMin = startHour * 60 + m;
+        slots.push({ hour: Math.floor(absMin / 60), minute: absMin % 60 });
+    }
 
-    const SLOT_HEIGHT = 90; // px per hour slot
+    const SLOT_HEIGHT = slotInterval === 60 ? 90 : slotInterval === 30 ? 50 : 30; // px per slot
 
-    const appsByProfHour = {};
+    const appsByProfSlot = {};
     appointments.forEach(app => {
-        const h   = parseISO(app.start_time).getHours();
-        const key = `${app.professional_id}-${h}`;
-        if (!appsByProfHour[key]) appsByProfHour[key] = [];
-        appsByProfHour[key].push(app);
+        const dt  = parseISO(app.start_time);
+        const h   = dt.getHours();
+        const m   = dt.getMinutes();
+        const slotMin = Math.floor(m / slotInterval) * slotInterval;
+        const key = `${app.professional_id}-${h}-${slotMin}`;
+        if (!appsByProfSlot[key]) appsByProfSlot[key] = [];
+        appsByProfSlot[key].push(app);
     });
 
     const isToday   = isSameDay(parseISO(selectedDate), new Date());
     const nowH      = now.getHours();
     const nowM      = now.getMinutes();
+    const nowTotalMin = (nowH - startHour) * 60 + nowM;
     const timeBarTop = (isToday && nowH >= startHour && nowH < endHour)
-        ? ((nowH - startHour) + nowM / 60) * SLOT_HEIGHT
+        ? (nowTotalMin / slotInterval) * SLOT_HEIGHT
         : null;
-
-    const statusStyles = {
-        cancelado:  'bg-red-50 border-l-red-500 text-red-700',
-        confirmado: 'bg-emerald-50 border-l-emerald-500 text-emerald-700',
-        atendido:   'bg-stone-50 border-l-stone-400 text-stone-600',
-        pendente:   'bg-amber-50 border-l-amber-500 text-amber-700',
-    };
 
     return (
         <div className="mt-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm">
@@ -213,24 +204,27 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                     </div>
                 )}
 
-                {/* Hour rows */}
-                {hours.map(h => (
+                {/* Slot rows */}
+                {slots.map(({ hour: h, minute: m }) => (
                     <div
-                        key={h}
+                        key={`${h}-${m}`}
                         className="flex border-b border-outline-variant/20 last:border-b-0"
                         style={{ minHeight: SLOT_HEIGHT }}
                     >
                         {/* Time label */}
-                        <div className="w-20 flex-shrink-0 flex flex-col items-center justify-start pt-3 border-r border-outline-variant/20 bg-surface-container-low/40">
-                            <span className="text-sm font-bold text-primary">{h.toString().padStart(2, '0')}:00</span>
+                        <div className="w-20 flex-shrink-0 flex flex-col items-center justify-start pt-2 border-r border-outline-variant/20 bg-surface-container-low/40">
+                            <span className={`font-bold text-primary ${slotInterval < 60 ? 'text-xs' : 'text-sm'}`}>
+                                {h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}
+                            </span>
                         </div>
 
                         {/* Professional columns */}
                         {workingProfs.map(prof => {
-                            const profStart = parseInt(prof.day_hours.open_time.split(':')[0]);
-                            const profEnd   = parseInt(prof.day_hours.close_time.split(':')[0]);
-                            const isWorking = h >= profStart && h < profEnd;
-                            const apps      = appsByProfHour[`${prof.id}-${h}`] || [];
+                            const profStartH = parseInt(prof.day_hours.open_time.split(':')[0]);
+                            const profEndH   = parseInt(prof.day_hours.close_time.split(':')[0]);
+                            const slotAbsMin = h * 60 + m;
+                            const isWorking  = slotAbsMin >= profStartH * 60 && slotAbsMin < profEndH * 60;
+                            const apps       = appsByProfSlot[`${prof.id}-${h}-${m}`] || [];
 
                             return (
                                 <div
@@ -252,11 +246,18 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                         </div>
                                     ) : (
                                         apps.map(app => {
-                                            const style = statusStyles[app.status] || statusStyles.pendente;
+                                            const specColor = app.specialty?.color || '#6366f1';
+                                            const isCanceled = app.status === 'cancelado';
                                             return (
                                                 <div
                                                     key={app.id}
-                                                    className={`flex-1 min-w-[100px] border border-l-4 rounded-lg p-2 flex flex-col gap-0.5 shadow-sm group ${style}`}
+                                                    className={`flex-1 min-w-[100px] border border-l-4 rounded-lg p-2 flex flex-col gap-0.5 shadow-sm group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
+                                                    style={{
+                                                        backgroundColor: specColor + '18',
+                                                        borderColor: specColor + '40',
+                                                        borderLeftColor: specColor,
+                                                        color: specColor,
+                                                    }}
                                                 >
                                                     <div className="flex items-start justify-between gap-1">
                                                         <span className="text-xs font-bold text-on-surface truncate leading-tight">{app.patient.name}</span>
@@ -273,7 +274,7 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                                         {format(parseISO(app.start_time), 'HH:mm')}–{format(parseISO(app.end_time), 'HH:mm')}
                                                     </span>
                                                     {app.specialty?.name && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wide opacity-60 truncate">{app.specialty.name}</span>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 truncate">{app.specialty.name}</span>
                                                     )}
                                                 </div>
                                             );
@@ -295,7 +296,16 @@ export default function Agenda({ professionals, patients, specialties, packages,
     const [selectedProfessionalId, setSelectedProfessionalId] = useState(filters.professional_id);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [dayViewActive, setDayViewActive] = useState(filters.professional_id === 'all');
+    const [slotInterval, setSlotInterval] = useState(() => {
+        const saved = localStorage.getItem('agenda_slot_interval');
+        return saved ? parseInt(saved) : 60;
+    });
     const dateInputRef = useRef(null);
+
+    const handleSlotInterval = (interval) => {
+        setSlotInterval(interval);
+        localStorage.setItem('agenda_slot_interval', interval);
+    };
 
     const professionalConfig = useMemo(() => {
         const dayName = format(parseISO(selectedDate), 'EEEE', { locale: ptBR });
@@ -304,25 +314,33 @@ export default function Agenda({ professionals, patients, specialties, packages,
 
     const isProfessionalWorking = professionalConfig?.is_open;
 
-    // Group appointments by hour for the grid
+    // Group appointments by slot for the grid
     const hours = useMemo(() => {
         if (!isProfessionalWorking) return [];
-        
-        const start = parseInt(professionalConfig.open_time.split(':')[0]);
-        const end = parseInt(professionalConfig.close_time.split(':')[0]);
-        
+
+        const startH = parseInt(professionalConfig.open_time.split(':')[0]);
+        const endH   = parseInt(professionalConfig.close_time.split(':')[0]);
+        const totalMin = (endH - startH) * 60;
+
         const slots = [];
-        for (let h = start; h < end; h++) {
+        for (let m = 0; m < totalMin; m += slotInterval) {
+            const absMin  = startH * 60 + m;
+            const slotH   = Math.floor(absMin / 60);
+            const slotM   = absMin % 60;
+            const label   = `${slotH.toString().padStart(2, '0')}:${slotM.toString().padStart(2, '0')}`;
             slots.push({
-                label: `${h.toString().padStart(2, '0')}:00`,
+                label,
                 appointments: appointments.filter(app => {
-                    const appDate = parseISO(app.start_time);
-                    return appDate.getHours() === h;
+                    const dt = parseISO(app.start_time);
+                    const appH = dt.getHours();
+                    const appM = dt.getMinutes();
+                    const slotMinFloor = Math.floor(appM / slotInterval) * slotInterval;
+                    return appH === slotH && slotMinFloor === slotM;
                 })
             });
         }
         return slots;
-    }, [isProfessionalWorking, professionalConfig, appointments]);
+    }, [isProfessionalWorking, professionalConfig, appointments, slotInterval]);
 
     // Use a fixed start of week for the date selector or dynamic based on selectedDate
     const weekDays = useMemo(() => {
@@ -428,15 +446,33 @@ export default function Agenda({ professionals, patients, specialties, packages,
 
             {/* Professional Filters */}
             <section className="bg-surface-container-lowest p-5 rounded-2xl flex flex-col gap-4 border border-outline-variant/30">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <label className="text-xs font-bold text-primary tracking-widest uppercase">Selecionar Profissional</label>
-                    <button
-                        onClick={() => handleDateSelect(new Date())}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                    >
-                        <span className="material-symbols-outlined text-base">today</span>
-                        Hoje
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {/* Slot interval selector */}
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-base text-outline">schedule</span>
+                            <span className="text-xs font-bold text-outline uppercase tracking-widest">Intervalo:</span>
+                            <div className="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+                                {[15, 30, 60].map(interval => (
+                                    <button
+                                        key={interval}
+                                        onClick={() => handleSlotInterval(interval)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${slotInterval === interval ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:bg-surface-container'}`}
+                                    >
+                                        {interval === 60 ? '1h' : `${interval}min`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => handleDateSelect(new Date())}
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-base">today</span>
+                            Hoje
+                        </button>
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-4">
                     <button
@@ -517,6 +553,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
                     allProfessionalsHours={allProfessionalsHours}
                     appointments={appointments}
                     selectedDate={selectedDate}
+                    slotInterval={slotInterval}
                     onNewAppointment={() => setShowModal(true)}
                     onEditAppointment={(app) => { setSelectedAppointment(app); setShowModal(true); }}
                     onDeleteAppointment={(app) => {
@@ -558,36 +595,42 @@ export default function Agenda({ professionals, patients, specialties, packages,
                             </div>
                         </div>
 
-                        {hours.map((hourObj) => (
+                        {hours.map((hourObj) => {
+                            const slotMinHeight = slotInterval === 60 ? 90 : slotInterval === 30 ? 52 : 32;
+                            return (
                             <div key={hourObj.label} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-x-px bg-outline-variant/30 border-x border-b border-outline-variant/30 last:rounded-b-2xl overflow-hidden">
-                                <div className="bg-surface-container-low px-4 py-8 flex flex-col items-center justify-center">
-                                    <span className="text-lg font-bold text-primary">{hourObj.label}</span>
+                                <div className="bg-surface-container-low px-4 flex flex-col items-center justify-center" style={{ minHeight: slotMinHeight }}>
+                                    <span className={`font-bold text-primary ${slotInterval < 60 ? 'text-xs' : 'text-lg'}`}>{hourObj.label}</span>
                                 </div>
                                 <div className="bg-white p-2 flex flex-wrap gap-2">
                                     {hourObj.appointments.length === 0 ? (
                                         <div
                                             onClick={() => setShowModal(true)}
-                                            className="flex-1 min-h-[90px] bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-xl flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
+                                            className="flex-1 bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-xl flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
+                                            style={{ minHeight: slotMinHeight - 8 }}
                                         >
                                             <span className="material-symbols-outlined text-outline/30 group-hover:text-primary transition-colors">add</span>
                                         </div>
                                     ) : (
                                         hourObj.appointments.map(app => {
-                                            const statusStyles = {
-                                                cancelado: 'bg-red-50 border-red-100 border-l-red-500 text-red-700',
-                                                confirmado: 'bg-emerald-50 border-emerald-100 border-l-emerald-500 text-emerald-700',
-                                                atendido: 'bg-stone-50 border-stone-200 border-l-stone-500 text-stone-600 grayscale',
-                                                pendente: 'bg-amber-50 border-amber-100 border-l-amber-500 text-amber-700',
-                                            }[app.status] || 'bg-amber-50 border-amber-100 border-l-amber-500 text-amber-700';
+                                            const specColor = app.specialty?.color || '#6366f1';
+                                            const isCanceled = app.status === 'cancelado';
 
                                             return (
                                                 <div
                                                     key={app.id}
-                                                    className={`min-w-[250px] flex-1 border border-l-4 rounded-xl p-3 flex flex-col justify-between min-h-[90px] shadow-sm relative group ${statusStyles}`}
+                                                    className={`min-w-[250px] flex-1 border border-l-4 rounded-xl p-3 flex flex-col justify-between shadow-sm relative group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
+                                                    style={{
+                                                        minHeight: slotMinHeight - 8,
+                                                        backgroundColor: specColor + '18',
+                                                        borderColor: specColor + '40',
+                                                        borderLeftColor: specColor,
+                                                        color: specColor,
+                                                    }}
                                                 >
                                                     <div>
                                                         <div className="flex items-start justify-between mb-1">
-                                                            <h3 className="font-bold text-sm text-on-surface">{app.patient.name}</h3>
+                                                            <h3 className="font-bold text-sm" style={{ color: specColor }}>{app.patient.name}</h3>
                                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 <button
                                                                     onClick={() => {
@@ -612,15 +655,15 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                                                 </button>
                                                             </div>
                                                         </div>
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${app.status === 'cancelado' ? 'bg-red-200' : 'bg-primary-fixed text-on-primary-fixed-variant'}`}>
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: specColor + '30', color: specColor }}>
                                                             {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-2">
                                                         <div className="flex flex-col">
-                                                            <span className="text-[10px] text-outline font-bold uppercase tracking-wider">{app.specialty?.name}</span>
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{app.specialty?.name}</span>
                                                         </div>
-                                                        <span className="text-[10px] font-extrabold uppercase">{app.status}</span>
+                                                        <span className="text-[10px] font-extrabold uppercase opacity-70">{app.status}</span>
                                                     </div>
                                                 </div>
                                             );
@@ -628,7 +671,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                     )}
                                 </div>
                             </div>
-                        ))}
+                        ); })}
                     </>
                 )}
             </section>

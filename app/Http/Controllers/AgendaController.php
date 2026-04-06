@@ -173,23 +173,11 @@ class AgendaController extends Controller
             ]);
         }
 
-        $hasConflict = Appointment::query()
-            ->where('professional_id', $validated['professional_id'])
-            ->where('status', '!=', 'cancelado')
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where('start_time', '=', $startTime)
-                    ->orWhere(function ($overlap) use ($startTime, $endTime) {
-                        $overlap->whereNotNull('end_time')
-                            ->where('start_time', '<', $endTime)
-                            ->where('end_time', '>', $startTime);
-                    });
-            })
-            ->exists();
-
-        if ($hasConflict) {
+        $minutesFromOpening = $openTime->diffInMinutes($startTime);
+        if ($minutesFromOpening % 30 !== 0) {
             return redirect()->back()->withErrors([
-                'hour' => 'Horário não disponível, escolha outro horário.',
-                'start_time' => 'Horário não disponível, escolha outro horário.',
+                'hour' => "Hora de início inválida para a agenda do profissional. Use intervalos de 30 minutos a partir de {$openTime->format('H:i')}.",
+                'start_time' => "Hora de início inválida para a agenda do profissional. Use intervalos de 30 minutos a partir de {$openTime->format('H:i')}.",
             ]);
         }
 
@@ -283,24 +271,11 @@ class AgendaController extends Controller
             ]);
         }
 
-        $hasConflict = Appointment::query()
-            ->where('professional_id', $validated['professional_id'])
-            ->where('status', '!=', 'cancelado')
-            ->where('id', '!=', $appointment->id)
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where('start_time', '=', $startTime)
-                    ->orWhere(function ($overlap) use ($startTime, $endTime) {
-                        $overlap->whereNotNull('end_time')
-                            ->where('start_time', '<', $endTime)
-                            ->where('end_time', '>', $startTime);
-                    });
-            })
-            ->exists();
-
-        if ($hasConflict) {
+        $minutesFromOpening = $openTime->diffInMinutes($startTime);
+        if ($minutesFromOpening % 30 !== 0) {
             return redirect()->back()->withErrors([
-                'hour' => 'Horário não disponível, escolha outro horário.',
-                'start_time' => 'Horário não disponível, escolha outro horário.',
+                'hour' => "Hora de início inválida para a agenda do profissional. Use intervalos de 30 minutos a partir de {$openTime->format('H:i')}.",
+                'start_time' => "Hora de início inválida para a agenda do profissional. Use intervalos de 30 minutos a partir de {$openTime->format('H:i')}.",
             ]);
         }
 

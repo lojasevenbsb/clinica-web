@@ -62,8 +62,8 @@ export default function Index({ specialties }) {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800">
+                                <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Cor</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Nome da Especialidade</th>
-                                <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Duração</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest text-right">Ações</th>
                             </tr>
                         </thead>
@@ -81,10 +81,13 @@ export default function Index({ specialties }) {
                                 specialties.map((specialty) => (
                                     <tr key={specialty.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-stone-800 dark:text-stone-200">{specialty.name}</div>
+                                            <span
+                                                className="inline-block w-6 h-6 rounded-full border border-stone-200"
+                                                style={{ backgroundColor: specialty.color || '#6366f1' }}
+                                            />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-stone-600 dark:text-stone-400">
-                                            {specialty.duration_minutes} min
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-stone-800 dark:text-stone-200">{specialty.name}</div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">

@@ -10,13 +10,19 @@ function PaymentGroup({ title, group, items: initialItems }) {
     const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
     const inputRef = useRef(null);
+    const editInputRef = useRef(null);
 
     useEffect(() => {
-        if (adding && inputRef.current) {
-            inputRef.current.focus();
-        }
+        if (adding && inputRef.current) inputRef.current.focus();
     }, [adding]);
+
+    useEffect(() => {
+        if (editingId && editInputRef.current) editInputRef.current.focus();
+    }, [editingId]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
@@ -37,6 +43,32 @@ function PaymentGroup({ title, group, items: initialItems }) {
     const handleCancel = () => {
         setNewName('');
         setAdding(false);
+    };
+
+    const startEdit = (item) => {
+        setEditingId(item.id);
+        setEditName(item.name);
+        setAdding(false);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditName('');
+    };
+
+    const handleEdit = async (e) => {
+        e.preventDefault();
+        if (!editName.trim()) return;
+        setEditSaving(true);
+        try {
+            const { data: updated } = await axios.put(route('payment_options.update', editingId), { name: editName.trim() });
+            setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+            cancelEdit();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setEditSaving(false);
+        }
     };
 
     const handleDelete = async (id) => {
@@ -68,15 +100,52 @@ function PaymentGroup({ title, group, items: initialItems }) {
                     <p className="px-6 py-8 text-center text-stone-400 text-sm">Nenhuma opção cadastrada.</p>
                 ) : (
                     items.map(item => (
-                        <div key={item.id} className="flex items-center justify-between px-6 py-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors group">
-                            <span className="text-sm text-stone-700 dark:text-stone-300">{item.name}</span>
-                            <button
-                                onClick={() => handleDelete(item.id)}
-                                className="p-1.5 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 rounded-lg"
-                            >
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                            </button>
-                        </div>
+                        editingId === item.id ? (
+                            <form key={item.id} onSubmit={handleEdit} className="px-6 py-3 flex items-center gap-2 bg-[#466250]/5">
+                                <TextInput
+                                    ref={editInputRef}
+                                    type="text"
+                                    className="flex-1 text-sm"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Escape' && cancelEdit()}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={editSaving || !editName.trim()}
+                                    className="px-4 py-2 bg-[#466250] text-white text-sm font-bold rounded-xl hover:bg-[#384f40] transition-colors disabled:opacity-40"
+                                >
+                                    {editSaving ? 'Salvando...' : 'Salvar'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={cancelEdit}
+                                    className="px-3 py-2 text-stone-400 hover:text-stone-600 text-sm rounded-xl hover:bg-stone-100 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            </form>
+                        ) : (
+                            <div key={item.id} className="flex items-center justify-between px-6 py-3 hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition-colors group">
+                                <span className="text-sm text-stone-700 dark:text-stone-300">{item.name}</span>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => startEdit(item)}
+                                        className="p-1.5 text-stone-300 hover:text-[#466250] transition-colors rounded-lg"
+                                        title="Editar"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(item.id)}
+                                        className="p-1.5 text-stone-300 hover:text-red-500 transition-colors rounded-lg"
+                                        title="Excluir"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )
                     ))
                 )}
 
@@ -111,7 +180,7 @@ function PaymentGroup({ title, group, items: initialItems }) {
             </div>
 
             {/* Footer */}
-            {!adding && (
+            {!adding && !editingId && (
                 <div className="px-6 py-3 border-t border-stone-100 dark:border-stone-800">
                     <button
                         onClick={() => setAdding(true)}

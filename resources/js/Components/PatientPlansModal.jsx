@@ -152,6 +152,12 @@ export default function PatientPlansModal({ show, onClose, patient, onAssignNew 
     );
 }
 
+function fmtDate(dateStr) {
+    if (!dateStr) return '—';
+    // Slice to 'YYYY-MM-DD' to handle both plain strings and ISO 8601 (from Laravel date cast)
+    return new Date(dateStr.substring(0, 10) + 'T00:00:00').toLocaleDateString('pt-BR');
+}
+
 function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, onUpdate, paymentMethods, paymentTypes }) {
     const [expanded, setExpanded] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -222,7 +228,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                         {specialty ? `${specialty} — ${planName}` : planName}
                     </p>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-400">
-                        <span>Início: {new Date(pp.start_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                        <span>Início: {fmtDate(pp.start_date)}</span>
                         {pp.session_count && <span>· {pp.session_count} sessões</span>}
                     </div>
                 </div>
@@ -327,8 +333,8 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                             </p>
                             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                 {localInstallments.map(inst => {
-                                    const dueDate = new Date(inst.due_date + 'T00:00:00');
-                                    const overdue = !inst.paid && dueDate < today;
+                                    const dueDate = inst.due_date ? new Date(inst.due_date.substring(0, 10) + 'T00:00:00') : null;
+                                    const overdue = !inst.paid && dueDate && dueDate < today;
                                     return (
                                         <div key={inst.id} className="flex items-center justify-between bg-white dark:bg-stone-900 px-3 py-2 rounded-xl border border-stone-100 dark:border-stone-800 text-sm">
                                             <div className="flex items-center gap-2">
@@ -336,7 +342,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                                                     {inst.numero}
                                                 </span>
                                                 <span className="text-stone-600 dark:text-stone-400">
-                                                    {dueDate.toLocaleDateString('pt-BR')}
+                                                    {dueDate ? dueDate.toLocaleDateString('pt-BR') : '—'}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -387,7 +393,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                 <div className="px-4 py-4 bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800 space-y-4">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                         <DetailRow icon="calendar_today" label="Data de Início"
-                            value={new Date(pp.start_date + 'T00:00:00').toLocaleDateString('pt-BR')} />
+                            value={fmtDate(pp.start_date)} />
                         <DetailRow icon="tag" label="Qtd. de Sessões"
                             value={pp.session_count ? `${pp.session_count} sessões` : '—'} />
                         <DetailRow icon="payments" label="Valor"
@@ -415,8 +421,8 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                             </p>
                             <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                                 {localInstallments.map(inst => {
-                                    const dueDate = new Date(inst.due_date + 'T00:00:00');
-                                    const overdue = !inst.paid && dueDate < today;
+                                    const dueDate = inst.due_date ? new Date(inst.due_date.substring(0, 10) + 'T00:00:00') : null;
+                                    const overdue = !inst.paid && dueDate && dueDate < today;
                                     return (
                                         <div key={inst.id} className="flex items-center justify-between bg-stone-50 dark:bg-stone-800/50 px-3 py-2 rounded-xl border border-stone-100 dark:border-stone-800 text-sm">
                                             <div className="flex items-center gap-2">
@@ -424,7 +430,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                                                     {inst.numero}
                                                 </span>
                                                 <span className="text-stone-600 dark:text-stone-400">
-                                                    {dueDate.toLocaleDateString('pt-BR')}
+                                                    {dueDate ? dueDate.toLocaleDateString('pt-BR') : '—'}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3">

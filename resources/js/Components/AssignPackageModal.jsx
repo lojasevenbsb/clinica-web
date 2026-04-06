@@ -18,6 +18,8 @@ export default function AssignPackageModal({ show, onClose, patient }) {
 
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
+    const [instStartDate, setInstStartDate] = useState('');
+    const [instEndDate, setInstEndDate] = useState('');
     const [data, setDataState] = useState({
         package_id: '',
         start_date: new Date().toISOString().split('T')[0],
@@ -48,6 +50,8 @@ export default function AssignPackageModal({ show, onClose, patient }) {
             notes: '',
             mensalidade_meses: '',
         });
+        setInstStartDate('');
+        setInstEndDate('');
         setErrors({});
     };
 
@@ -89,6 +93,21 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         });
     };
 
+    // Auto-calculate months from instStartDate + instEndDate
+    useEffect(() => {
+        if (!instStartDate || !instEndDate) return;
+        const start = new Date(instStartDate + 'T00:00:00');
+        const end   = new Date(instEndDate   + 'T00:00:00');
+        if (end <= start) return;
+        const meses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+        if (meses > 0) setData('mensalidade_meses', String(meses));
+    }, [instStartDate, instEndDate]);
+
+    // Sync instStartDate with plan start_date when user hasn't set it manually
+    useEffect(() => {
+        if (!instStartDate && data.start_date) setInstStartDate(data.start_date);
+    }, [data.start_date]);
+
     // Recalculate parcelas
     useEffect(() => {
         if (!mensalidade) {
@@ -98,13 +117,14 @@ export default function AssignPackageModal({ show, onClose, patient }) {
 
         const numMeses = parseInt(data.mensalidade_meses);
         const valor = parseFloat(data.price);
+        const baseDate = instStartDate || data.start_date;
 
-        if (!numMeses || numMeses < 1 || !valor || !data.start_date) {
+        if (!numMeses || numMeses < 1 || !valor || !baseDate) {
             setParcelas([]);
             return;
         }
 
-        const start = new Date(data.start_date + 'T00:00:00');
+        const start = new Date(baseDate + 'T00:00:00');
         const dueDay = melhorData ?? start.getDate();
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -125,13 +145,15 @@ export default function AssignPackageModal({ show, onClose, patient }) {
         }
 
         setParcelas(geradas);
-    }, [mensalidade, data.mensalidade_meses, data.price, data.start_date, melhorData]);
+    }, [mensalidade, data.mensalidade_meses, data.price, data.start_date, instStartDate, melhorData]);
 
     const handleClose = () => {
         reset();
         setMensalidade(false);
         setParcelas([]);
         setMelhorData(null);
+        setInstStartDate('');
+        setInstEndDate('');
         setPackages([]);
         onClose();
     };
@@ -301,8 +323,33 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                     {mensalidade && (
                         <div className="space-y-4 p-4 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-100 dark:border-stone-800">
 
-                                {/* Meses + valor + melhor data */}
-                            <div className="grid grid-cols-3 gap-3">
+                            {/* Datas de início e término */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <InputLabel htmlFor="inst_start_date" value="Data de Início" />
+                                    <TextInput
+                                        id="inst_start_date"
+                                        type="date"
+                                        className="mt-1 block w-full"
+                                        value={instStartDate}
+                                        onChange={(e) => setInstStartDate(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="inst_end_date" value="Data de Término" />
+                                    <TextInput
+                                        id="inst_end_date"
+                                        type="date"
+                                        className="mt-1 block w-full"
+                                        value={instEndDate}
+                                        onChange={(e) => setInstEndDate(e.target.value)}
+                                        min={instStartDate || undefined}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Meses + melhor data */}
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <InputLabel htmlFor="mensalidade_meses" value="Qtd. Meses" />
                                     <TextInput
@@ -311,7 +358,10 @@ export default function AssignPackageModal({ show, onClose, patient }) {
                                         min="1"
                                         className="mt-1 block w-full"
                                         value={data.mensalidade_meses}
-                                        onChange={(e) => setData('mensalidade_meses', e.target.value)}
+                                        onChange={(e) => {
+                                            setData('mensalidade_meses', e.target.value);
+                                            setInstEndDate(''); // limpa data fim ao editar meses manualmente
+                                        }}
                                         placeholder="ex: 3"
                                     />
                                 </div>

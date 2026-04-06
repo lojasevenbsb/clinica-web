@@ -19,6 +19,17 @@ class PaymentOptionController extends Controller
         return response()->json($option);
     }
 
+    public function update(Request $request, PaymentOption $paymentOption)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+        ]);
+
+        $paymentOption->update($validated);
+
+        return response()->json($paymentOption);
+    }
+
     public function destroy(PaymentOption $paymentOption)
     {
         $paymentOption->delete();

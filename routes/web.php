@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/payment-options', [PaymentOptionController::class, 'index'])->name('payment_options.index');
     Route::post('/payment-options', [PaymentOptionController::class, 'store'])->name('payment_options.store');
+    Route::put('/payment-options/{paymentOption}', [PaymentOptionController::class, 'update'])->name('payment_options.update');
     Route::delete('/payment-options/{paymentOption}', [PaymentOptionController::class, 'destroy'])->name('payment_options.destroy');
 
     Route::post('/patients/{patient}/packages', [PatientPackageController::class, 'store'])->name('patients.packages.store');

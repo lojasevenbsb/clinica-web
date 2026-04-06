@@ -4,7 +4,8 @@
       "Bash(xargs grep:*)",
       "Bash(grep -r 'Invalid Date' /c/Projetos/Clinica --include=*.jsx --include=*.js --include=*.tsx --include=*.ts)",
       "Bash(find /c/Projetos/Clinica/app -type f -name *Package*.php -o -name *Patient*.php)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(php artisan:*)"
     ]
   }
 }

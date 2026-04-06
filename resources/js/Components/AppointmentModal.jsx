@@ -14,6 +14,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
         professional_id: selectedProfessionalId || '',
         patient_id: '',
         specialty_id: '',
+        patient_package_id: '',
         date: selectedDate || '',
         hour: '08:00',
         status: 'pendente',
@@ -61,6 +62,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     professional_id: appointment.professional_id,
                     patient_id: appointment.patient_id,
                     specialty_id: appointment.specialty_id,
+                    patient_package_id: appointment.patient_package_id || '',
                     date: format(startDateTime, 'yyyy-MM-dd'),
                     hour: format(startDateTime, 'HH:mm'),
                     status: appointment.status,
@@ -71,6 +73,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     professional_id: selectedProfessionalId || '',
                     patient_id: '',
                     specialty_id: '',
+                    patient_package_id: '',
                     date: selectedDate || '',
                     hour: '08:00',
                     status: 'pendente',
@@ -152,10 +155,10 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                         <div>
                             <InputLabel value="Paciente" />
-                            <select 
+                            <select
                                 className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.patient_id}
-                                onChange={(e) => setData('patient_id', e.target.value)}
+                                onChange={(e) => setData({ ...data, patient_id: e.target.value, patient_package_id: '' })}
                                 required
                             >
                                 <option value="">Selecionar Paciente</option>
@@ -164,6 +167,34 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                 ))}
                             </select>
                             <InputError message={errors.patient_id} className="mt-2" />
+                        </div>
+
+                        {/* Plano do paciente */}
+                        <div>
+                            <InputLabel value="Plano" />
+                            {(() => {
+                                const selectedPatient = patients.find(p => p.id == data.patient_id);
+                                const patientPlans = selectedPatient?.packages ?? [];
+                                return (
+                                    <select
+                                        className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary disabled:opacity-50"
+                                        value={data.patient_package_id}
+                                        onChange={(e) => setData('patient_package_id', e.target.value)}
+                                        disabled={!data.patient_id || patientPlans.length === 0}
+                                    >
+                                        <option value="">
+                                            {!data.patient_id ? 'Selecione um paciente primeiro' : patientPlans.length === 0 ? 'Sem planos cadastrados' : 'Nenhum plano (particular)'}
+                                        </option>
+                                        {patientPlans.map(pp => (
+                                            <option key={pp.id} value={pp.id}>
+                                                {pp.package?.name ?? `Plano #${pp.id}`}
+                                                {pp.status ? ` — ${pp.status}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                );
+                            })()}
+                            <InputError message={errors.patient_package_id} className="mt-2" />
                         </div>
 
                         <div>

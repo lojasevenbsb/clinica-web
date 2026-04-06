@@ -13,6 +13,7 @@ class Appointment extends Model
         'professional_id',
         'patient_id',
         'specialty_id',
+        'patient_package_id',
         'start_time',
         'end_time',
         'status',
@@ -37,5 +38,10 @@ class Appointment extends Model
     public function specialty()
     {
         return $this->belongsTo(Specialty::class);
+    }
+
+    public function patientPackage()
+    {
+        return $this->belongsTo(PatientPackage::class);
     }
 }

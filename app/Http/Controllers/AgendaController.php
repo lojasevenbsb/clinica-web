@@ -19,7 +19,18 @@ class AgendaController extends Controller
         $professionalId = $request->professional_id;
 
         $professionals = Professional::all();
-        
+
+        $daysTranslations = [
+            'Monday'    => 'Segunda-feira',
+            'Tuesday'   => 'Terça-feira',
+            'Wednesday' => 'Quarta-feira',
+            'Thursday'  => 'Quinta-feira',
+            'Friday'    => 'Sexta-feira',
+            'Saturday'  => 'Sábado',
+            'Sunday'    => 'Domingo',
+        ];
+        $translatedDay = $daysTranslations[$date->format('l')];
+
         // Default to 'all' if no professional selected, or pick the first one if preferred.
         // The user wants a global view, so defaulting to 'all' might be best.
         if (!$professionalId) {
@@ -29,34 +40,53 @@ class AgendaController extends Controller
         $query = Appointment::with(['patient', 'specialty', 'professional'])
             ->whereDate('start_time', $date);
 
+        $allProfessionalsHours = [];
+
         if ($professionalId !== 'all') {
             $query->where('professional_id', $professionalId);
             $selectedProfessional = Professional::with('hours')->find($professionalId);
             $hours = $selectedProfessional ? $selectedProfessional->hours : [];
         } else {
-            // Fetch global clinic hours for the 'all' view
-            $dayName = $date->format('l');
-            $daysTranslations = [
-                'Monday' => 'Segunda-feira',
-                'Tuesday' => 'Terça-feira',
-                'Wednesday' => 'Quarta-feira',
-                'Thursday' => 'Quinta-feira',
-                'Friday' => 'Sexta-feira',
-                'Saturday' => 'Sábado',
-                'Sunday' => 'Domingo',
-            ];
-            $translatedDay = $daysTranslations[$dayName];
             $hours = ClinicHour::where('day_of_week', $translatedDay)->get();
             $selectedProfessional = null;
+
+            // Per-professional day hours for the multi-column grid
+            $allProfessionalsHours = $professionals->map(function ($prof) use ($translatedDay) {
+                $dayHours = $prof->hours()->where('day_of_week', $translatedDay)->first();
+                return [
+                    'id'        => $prof->id,
+                    'name'      => $prof->name,
+                    'color'     => $prof->color ?? '#6366f1',
+                    'day_hours' => $dayHours ? [
+                        'is_open'    => (bool) $dayHours->is_open,
+                        'open_time'  => $dayHours->open_time,
+                        'close_time' => $dayHours->close_time,
+                    ] : null,
+                ];
+            })->values();
         }
 
         $appointments = $query->orderBy('start_time')->get();
-        
+
+        // For the "all" mode, also send the full month's appointments for the calendar
+        $monthAppointments = [];
+        if ($professionalId === 'all') {
+            $monthAppointments = Appointment::with(['patient', 'specialty', 'professional'])
+                ->whereBetween('start_time', [
+                    $date->copy()->startOfMonth(),
+                    $date->copy()->endOfMonth(),
+                ])
+                ->orderBy('start_time')
+                ->get();
+        }
+
         return Inertia::render('Agenda', [
             'professionals' => $professionals,
-            'patients' => Patient::orderBy('name')->get(),
+            'allProfessionalsHours' => $allProfessionalsHours,
+            'patients' => Patient::with(['packages.package'])->orderBy('name')->get(),
             'specialties' => Specialty::orderBy('name')->get(),
             'appointments' => $appointments,
+            'monthAppointments' => $monthAppointments,
             'professionalHours' => $hours,
             'filters' => [
                 'date' => $date->format('Y-m-d'),
@@ -68,11 +98,12 @@ class AgendaController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'professional_id' => 'required|exists:professionals,id',
-            'patient_id' => 'required|exists:patients,id',
-            'specialty_id' => 'required|exists:specialties,id',
-            'start_time' => 'required|date',
-            'notes' => 'nullable|string',
+            'professional_id'   => 'required|exists:professionals,id',
+            'patient_id'        => 'required|exists:patients,id',
+            'specialty_id'      => 'required|exists:specialties,id',
+            'patient_package_id'=> 'nullable|exists:patient_packages,id',
+            'start_time'        => 'required|date',
+            'notes'             => 'nullable|string',
         ]);
 
         $startTime = Carbon::parse($request->start_time);
@@ -117,12 +148,13 @@ class AgendaController extends Controller
     public function update(Request $request, Appointment $appointment)
     {
         $validated = $request->validate([
-            'status' => 'required|string|in:pendente,confirmado,cancelado,atendido',
-            'professional_id' => 'required|exists:professionals,id',
-            'patient_id' => 'required|exists:patients,id',
-            'specialty_id' => 'required|exists:specialties,id',
-            'start_time' => 'required|date',
-            'notes' => 'nullable|string',
+            'status'            => 'required|string|in:pendente,confirmado,cancelado,atendido',
+            'professional_id'   => 'required|exists:professionals,id',
+            'patient_id'        => 'required|exists:patients,id',
+            'specialty_id'      => 'required|exists:specialties,id',
+            'patient_package_id'=> 'nullable|exists:patient_packages,id',
+            'start_time'        => 'required|date',
+            'notes'             => 'nullable|string',
         ]);
 
         $startTime = Carbon::parse($request->start_time);

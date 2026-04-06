@@ -57,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/patients/{patient}/packages', [PatientPackageController::class, 'store'])->name('patients.packages.store');
     Route::get('/patients/{patient}/packages', [PatientPackageController::class, 'index'])->name('patients.packages.index');
     Route::put('/patient-packages/{patientPackage}', [PatientPackageController::class, 'update'])->name('patients.packages.update');
+    Route::delete('/patient-packages/{patientPackage}', [PatientPackageController::class, 'destroy'])->name('patients.packages.destroy');
     Route::patch('/patient-package-installments/{installment}/toggle', [PatientPackageController::class, 'toggleInstallment'])->name('installments.toggle');
     Route::get('/specialties-with-packages', [PatientPackageController::class, 'specialties'])->name('specialties.with_packages');
     Route::get('/specialties-list', [\App\Http\Controllers\SpecialtyController::class, 'list'])->name('specialties.list');

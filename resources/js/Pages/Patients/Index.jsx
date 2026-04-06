@@ -6,13 +6,16 @@ import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import AssignPackageModal from '@/Components/AssignPackageModal';
 import PatientPlansModal from '@/Components/PatientPlansModal';
+import AnamneseModal from '@/Components/AnamneseModal';
+import ProntuarioModal from '@/Components/ProntuarioModal';
+import EvolucaoModal from '@/Components/EvolucaoModal';
 
 export default function Index({ patients, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [patientToDelete, setPatientToDelete] = useState(null);
     const [activePatient, setActivePatient] = useState(null);
-    const [modal, setModal] = useState(null); // 'plans' | 'assign' | null
+    const [modal, setModal] = useState(null); // 'plans' | 'assign' | 'anamnese' | 'prontuario' | 'evolucao' | null
 
     const openPlans = (patient) => {
         setActivePatient(patient);
@@ -22,6 +25,21 @@ export default function Index({ patients, filters }) {
     const openAssignPackage = (patient) => {
         setActivePatient(patient);
         setModal('assign');
+    };
+
+    const openAnamnese = (patient) => {
+        setActivePatient(patient);
+        setModal('anamnese');
+    };
+
+    const openProntuario = (patient) => {
+        setActivePatient(patient);
+        setModal('prontuario');
+    };
+
+    const openEvolucao = (patient) => {
+        setActivePatient(patient);
+        setModal('evolucao');
     };
 
     const closeModal_ = () => {
@@ -130,6 +148,30 @@ export default function Index({ patients, filters }) {
                                             <div className="flex justify-end gap-2">
                                                 <button
                                                     type="button"
+                                                    onClick={() => openAnamnese(patient)}
+                                                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Ficha de Anamnese"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">assignment</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openProntuario(patient)}
+                                                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                    title="Prontuário"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">folder_shared</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEvolucao(patient)}
+                                                    className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg transition-colors"
+                                                    title="Evolução do Paciente"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">trending_up</span>
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={() => openPlans(patient)}
                                                     className="p-2 text-[#466250] hover:bg-[#466250]/10 rounded-lg transition-colors"
                                                     title="Ver Planos"
@@ -193,6 +235,24 @@ export default function Index({ patients, filters }) {
 
             <AssignPackageModal
                 show={modal === 'assign'}
+                onClose={closeModal_}
+                patient={activePatient}
+            />
+
+            <AnamneseModal
+                show={modal === 'anamnese'}
+                onClose={closeModal_}
+                patient={activePatient}
+            />
+
+            <ProntuarioModal
+                show={modal === 'prontuario'}
+                onClose={closeModal_}
+                patient={activePatient}
+            />
+
+            <EvolucaoModal
+                show={modal === 'evolucao'}
                 onClose={closeModal_}
                 patient={activePatient}
             />

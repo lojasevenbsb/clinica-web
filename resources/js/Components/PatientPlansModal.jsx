@@ -67,11 +67,12 @@ export default function PatientPlansModal({ show, onClose, patient, onAssignNew 
         return                       { label: 'Pendente', cls: 'bg-red-100 text-red-500' };
     };
 
-    const active   = plans.filter(p => p.status === 'active');
-    const finished = plans.filter(p => p.status !== 'active');
+    const removePlan = (id) => {
+        setPlans(prev => prev.filter(p => p.id !== id));
+    };
 
     return (
-        <Modal show={show && !!patient} onClose={handleClose} maxWidth="lg">
+        <Modal show={show && !!patient} onClose={handleClose} maxWidth="2xl">
             <div className="p-8">
                 <div className="flex items-start justify-between mb-6">
                     <div>
@@ -110,41 +111,19 @@ export default function PatientPlansModal({ show, onClose, patient, onAssignNew 
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
-                        {active.length > 0 && (
-                            <div>
-                                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Em andamento</p>
-                                <div className="space-y-2">
-                                    {active.map(pp => (
-                                        <PlanCard key={pp.id} pp={pp}
-                                            statusLabel={statusLabel}
-                                            paymentStatusLabel={paymentStatusLabel}
-                                            onInstallmentToggle={updateInstallment}
-                                            onUpdate={updatePlan}
-                                            paymentMethods={paymentMethods}
-                                            paymentTypes={paymentTypes}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {finished.length > 0 && (
-                            <div>
-                                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Histórico</p>
-                                <div className="space-y-2">
-                                    {finished.map(pp => (
-                                        <PlanCard key={pp.id} pp={pp}
-                                            statusLabel={statusLabel}
-                                            paymentStatusLabel={paymentStatusLabel}
-                                            onInstallmentToggle={updateInstallment}
-                                            onUpdate={updatePlan}
-                                            paymentMethods={paymentMethods}
-                                            paymentTypes={paymentTypes}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                        <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Histórico</p>
+                        {plans.map(pp => (
+                            <PlanCard key={pp.id} pp={pp}
+                                statusLabel={statusLabel}
+                                paymentStatusLabel={paymentStatusLabel}
+                                onInstallmentToggle={updateInstallment}
+                                onUpdate={updatePlan}
+                                onRemove={removePlan}
+                                paymentMethods={paymentMethods}
+                                paymentTypes={paymentTypes}
+                            />
+                        ))}
                     </div>
                 )}
             </div>
@@ -158,10 +137,12 @@ function fmtDate(dateStr) {
     return new Date(dateStr.substring(0, 10) + 'T00:00:00').toLocaleDateString('pt-BR');
 }
 
-function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, onUpdate, paymentMethods, paymentTypes }) {
+function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, onUpdate, onRemove, paymentMethods, paymentTypes }) {
     const [expanded, setExpanded] = useState(false);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [removing, setRemoving] = useState(false);
+    const [confirmRemove, setConfirmRemove] = useState(false);
     const [editData, setEditData] = useState({});
     const [localInstallments, setLocalInstallments] = useState(pp.installments || []);
 
@@ -180,9 +161,10 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
         setEditData({
             price:          pp.price,
             session_count:  pp.session_count || '',
-            start_date:     pp.start_date,
-            payment_method: pp.payment_method || '',
-            payment_type:   pp.payment_type || '',
+            start_date:     pp.start_date ? pp.start_date.substring(0, 10) : '',
+            end_date:       pp.end_date   ? pp.end_date.substring(0, 10)   : '',
+            payment_method: pp.payment_method != null ? String(pp.payment_method) : '',
+            payment_type:   pp.payment_type  != null ? String(pp.payment_type)  : '',
             payment_status: pp.payment_status || 'pending',
             status:         pp.status || 'active',
             notes:          pp.notes || '',
@@ -192,6 +174,18 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
     };
 
     const cancelEdit = () => setEditing(false);
+
+    const handleRemove = async () => {
+        setRemoving(true);
+        try {
+            await axios.delete(route('patients.packages.destroy', pp.id));
+            onRemove(pp.id);
+        } catch (err) {
+            console.error(err);
+            setRemoving(false);
+            setConfirmRemove(false);
+        }
+    };
 
     const saveEdit = async () => {
         setSaving(true);
@@ -224,7 +218,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                     <span className="material-symbols-outlined text-[#466250] text-sm">inventory_2</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-stone-800 dark:text-stone-200 truncate">
+                    <p className="text-sm font-bold text-stone-800 dark:text-stone-200">
                         {specialty ? `${specialty} — ${planName}` : planName}
                     </p>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-400">
@@ -246,6 +240,13 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                         <span className="material-symbols-outlined text-base">edit</span>
                     </button>
                     <button
+                        onClick={() => setConfirmRemove(true)}
+                        className="p-1 text-stone-400 hover:text-red-500 transition-colors rounded-lg"
+                        title="Remover plano"
+                    >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                    </button>
+                    <button
                         onClick={() => { setExpanded(v => !v); setEditing(false); }}
                         className="p-1 text-stone-400 hover:text-[#466250] transition-colors rounded-lg"
                         title="Ver detalhes"
@@ -257,6 +258,33 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                 </div>
             </div>
 
+            {/* Confirm remove panel */}
+            {confirmRemove && (
+                <div className="px-4 py-4 bg-red-50 border-t border-red-100 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-red-600">
+                        <span className="material-symbols-outlined text-lg">warning</span>
+                        <span className="text-sm font-medium">Remover este plano? Esta ação não pode ser desfeita.</span>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setConfirmRemove(false)}
+                            className="px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRemove}
+                            disabled={removing}
+                            className="px-3 py-1.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            {removing ? 'Removendo...' : 'Sim, remover'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Edit panel */}
             {editing && (
                 <div className="px-4 py-4 bg-[#466250]/5 border-t border-[#466250]/20 space-y-3">
@@ -267,6 +295,12 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                             <input type="date" className="mt-1 w-full text-sm border-stone-200 dark:border-stone-700 dark:bg-stone-800 rounded-xl shadow-sm"
                                 value={editData.start_date}
                                 onChange={e => setEditData(d => ({ ...d, start_date: e.target.value }))} />
+                        </div>
+                        <div>
+                            <label className="text-xs text-stone-500 font-medium">Data de Término</label>
+                            <input type="date" className="mt-1 w-full text-sm border-stone-200 dark:border-stone-700 dark:bg-stone-800 rounded-xl shadow-sm"
+                                value={editData.end_date}
+                                onChange={e => setEditData(d => ({ ...d, end_date: e.target.value }))} />
                         </div>
                         <div>
                             <label className="text-xs text-stone-500 font-medium">Qtd. de Sessões</label>
@@ -296,7 +330,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                                 value={editData.payment_method}
                                 onChange={e => setEditData(d => ({ ...d, payment_method: e.target.value }))}>
                                 <option value="">Selecione</option>
-                                {paymentMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                {paymentMethods.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
                             </select>
                         </div>
                         <div>
@@ -305,7 +339,7 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                                 value={editData.payment_type}
                                 onChange={e => setEditData(d => ({ ...d, payment_type: e.target.value }))}>
                                 <option value="">Selecione</option>
-                                {paymentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                {paymentTypes.map(t => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
                             </select>
                         </div>
                         <div>
@@ -394,6 +428,8 @@ function PlanCard({ pp, statusLabel, paymentStatusLabel, onInstallmentToggle, on
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                         <DetailRow icon="calendar_today" label="Data de Início"
                             value={fmtDate(pp.start_date)} />
+                        <DetailRow icon="event" label="Data de Término"
+                            value={fmtDate(pp.end_date)} />
                         <DetailRow icon="tag" label="Qtd. de Sessões"
                             value={pp.session_count ? `${pp.session_count} sessões` : '—'} />
                         <DetailRow icon="payments" label="Valor"

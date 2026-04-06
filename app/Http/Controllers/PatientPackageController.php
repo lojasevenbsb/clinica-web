@@ -33,6 +33,7 @@ class PatientPackageController extends Controller
             'start_date'     => 'required|date',
             'price'          => 'required|numeric|min:0',
             'session_count'  => 'nullable|integer|min:1',
+            'end_date'       => 'nullable|date',
             'payment_type'   => 'nullable|string',
             'payment_method' => 'nullable|string',
             'notes'          => 'nullable|string',
@@ -68,6 +69,7 @@ class PatientPackageController extends Controller
             'price'          => 'required|numeric|min:0',
             'session_count'  => 'nullable|integer|min:1',
             'start_date'     => 'required|date',
+            'end_date'       => 'nullable|date',
             'payment_type'   => 'nullable|string',
             'payment_method' => 'nullable|string',
             'payment_status' => 'nullable|string',
@@ -83,6 +85,13 @@ class PatientPackageController extends Controller
         $arr['payment_type_name']   = $patientPackage->payment_type   ? ($paymentOptions->get($patientPackage->payment_type)?->name   ?? $patientPackage->payment_type)   : null;
 
         return response()->json($arr);
+    }
+
+    public function destroy(PatientPackage $patientPackage)
+    {
+        $patientPackage->installments()->delete();
+        $patientPackage->delete();
+        return response()->json(['success' => true]);
     }
 
     public function toggleInstallment(PatientPackageInstallment $installment)

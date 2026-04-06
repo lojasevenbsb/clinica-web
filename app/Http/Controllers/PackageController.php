@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class PackageController extends Controller
 {
-    public function index(Specialty $specialty = null)
+    public function index(?Specialty $specialty = null)
     {
         if ($specialty) {
             return response()->json($specialty->packages);
@@ -22,14 +22,25 @@ class PackageController extends Controller
         return response()->json($packages);
     }
 
-    public function store(Request $request, Specialty $specialty = null)
+    public function store(Request $request, ?Specialty $specialty = null)
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
             'session_count' => 'nullable|integer|min:1',
             'price'         => 'required|numeric|min:0',
+            'duration_value'=> 'nullable|integer|min:1',
+            'duration_unit' => 'nullable|in:minutes,months,sessions',
             'specialty_id'  => 'nullable|exists:specialties,id',
         ]);
+
+        if (empty($validated['duration_value'])) {
+            $validated['duration_value'] = null;
+            $validated['duration_unit'] = null;
+        }
+
+        $validated['duration_months'] = ($validated['duration_unit'] ?? null) === 'months'
+            ? $validated['duration_value']
+            : null;
 
         if ($specialty) {
             $package = $specialty->packages()->create($validated);
@@ -46,8 +57,19 @@ class PackageController extends Controller
             'name'          => 'required|string|max:255',
             'session_count' => 'nullable|integer|min:1',
             'price'         => 'required|numeric|min:0',
+            'duration_value'=> 'nullable|integer|min:1',
+            'duration_unit' => 'nullable|in:minutes,months,sessions',
             'specialty_id'  => 'nullable|exists:specialties,id',
         ]);
+
+        if (empty($validated['duration_value'])) {
+            $validated['duration_value'] = null;
+            $validated['duration_unit'] = null;
+        }
+
+        $validated['duration_months'] = ($validated['duration_unit'] ?? null) === 'months'
+            ? $validated['duration_value']
+            : null;
 
         $package->update($validated);
 

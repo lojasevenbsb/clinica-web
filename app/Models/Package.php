@@ -11,6 +11,14 @@ class Package extends Model
         'name',
         'session_count',
         'price',
+        'duration_months',
+        'duration_value',
+        'duration_unit',
+    ];
+
+    protected $casts = [
+        'duration_months' => 'integer',
+        'duration_value' => 'integer',
     ];
 
     public function specialty()

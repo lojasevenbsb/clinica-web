@@ -289,7 +289,7 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
     );
 }
 
-export default function Agenda({ professionals, patients, specialties, appointments, monthAppointments = [], professionalHours, allProfessionalsHours = [], filters }) {
+export default function Agenda({ professionals, patients, specialties, packages, appointments, monthAppointments = [], professionalHours, allProfessionalsHours = [], filters }) {
     const [showModal, setShowModal] = useState(false);
     const [selectedDate, setSelectedDate] = useState(filters.date);
     const [selectedProfessionalId, setSelectedProfessionalId] = useState(filters.professional_id);
@@ -643,6 +643,8 @@ export default function Agenda({ professionals, patients, specialties, appointme
                 professionals={professionals}
                 patients={patients}
                 specialties={specialties}
+                packages={packages}
+                appointments={appointments}
                 professionalHours={professionalHours}
                 selectedDate={selectedDate}
                 selectedProfessionalId={selectedProfessionalId}
@@ -650,5 +652,3 @@ export default function Agenda({ professionals, patients, specialties, appointme
         </AuthenticatedLayout>
     );
 }
-
-

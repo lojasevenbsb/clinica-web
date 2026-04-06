@@ -16,10 +16,12 @@ class Patient extends Model
         'email',
         'phone',
         'address',
+        'is_walk_in',
     ];
 
     protected $casts = [
         'birth_date' => 'date:Y-m-d',
+        'is_walk_in' => 'boolean',
     ];
 
     public function packages()

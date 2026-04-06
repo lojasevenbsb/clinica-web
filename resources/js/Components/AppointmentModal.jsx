@@ -4,55 +4,71 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { useForm, router } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { addMinutes, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function AppointmentModal({ show, onClose, professionals, patients, specialties, professionalHours, selectedDate, selectedProfessionalId, appointment = null }) {
+export default function AppointmentModal({ show, onClose, professionals, patients, specialties, packages, appointments = [], professionalHours, selectedDate, selectedProfessionalId, appointment = null }) {
     const { data, setData, post, patch, processing, errors, reset, clearErrors } = useForm({
-        professional_id: selectedProfessionalId || '',
+        professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
+        patient_mode: 'registered',
         patient_id: '',
+        walk_in_name: '',
+        walk_in_phone: '',
+        walk_in_email: '',
+        walk_in_birth_date: '',
+        walk_in_cpf: '',
         specialty_id: '',
+        package_id: '',
         patient_package_id: '',
         date: selectedDate || '',
         hour: '08:00',
+        start_time: '',
         status: 'pendente',
         notes: '',
     });
 
-    const [duration, setDuration] = useState(0);
     const [availableHours, setAvailableHours] = useState([]);
     const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
+    const hasProfessionalAndDate = Boolean(data.professional_id) && Boolean(data.date);
 
     useEffect(() => {
-        if (data.date && professionalHours) {
-            const dayName = format(parseISO(data.date), 'EEEE', { locale: ptBR });
-            const config = professionalHours.find(h => h.day_of_week.toLowerCase() === dayName.toLowerCase());
-
-            if (config && config.is_open) {
-                setIsProfessionalWorking(true);
-                const start = parseInt(config.open_time.split(':')[0]);
-                const end = parseInt(config.close_time.split(':')[0]);
-                
-                const slots = [];
-                for (let h = start; h < end; h++) {
-                    const hourStr = h.toString().padStart(2, '0');
-                    slots.push(`${hourStr}:00`);
-                    slots.push(`${hourStr}:30`);
-                }
-                setAvailableHours(slots);
-                
-                // Only reset the hour if it's not in the slots AND we are not initializing for an edit
-                if (!slots.includes(data.hour) && !appointment) {
-                    setData('hour', slots[0] || '08:00');
-                }
-            } else {
-                setIsProfessionalWorking(false);
-                setAvailableHours([]);
-            }
+        if (!data.date || !data.professional_id || data.professional_id === 'all') {
+            setIsProfessionalWorking(false);
+            setAvailableHours([]);
+            return;
         }
-    }, [data.date, professionalHours]);
+
+        const dayName = format(parseISO(data.date), 'EEEE', { locale: ptBR }).toLowerCase();
+        const selectedProfessional = professionals.find((p) => String(p.id) === String(data.professional_id));
+        const selectedProfessionalHours = selectedProfessional?.hours || professionalHours || [];
+        const config = selectedProfessionalHours.find(
+            (h) => String(h.day_of_week || '').toLowerCase() === dayName
+        );
+
+        if (config && config.is_open) {
+            setIsProfessionalWorking(true);
+            const start = parseInt(config.open_time.split(':')[0]);
+            const end = parseInt(config.close_time.split(':')[0]);
+
+            const slots = [];
+            for (let h = start; h < end; h++) {
+                const hourStr = h.toString().padStart(2, '0');
+                slots.push(`${hourStr}:00`);
+                slots.push(`${hourStr}:30`);
+            }
+            setAvailableHours(slots);
+
+            // Only reset the hour if it's not in the slots AND we are not initializing for an edit
+            if (!slots.includes(data.hour) && !appointment) {
+                setData('hour', slots[0] || '08:00');
+            }
+        } else {
+            setIsProfessionalWorking(false);
+            setAvailableHours([]);
+        }
+    }, [data.date, data.professional_id, professionals, professionalHours]);
 
     useEffect(() => {
         if (show) {
@@ -60,22 +76,38 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                 const startDateTime = parseISO(appointment.start_time);
                 setData({
                     professional_id: appointment.professional_id,
+                    patient_mode: 'registered',
                     patient_id: appointment.patient_id,
+                    walk_in_name: '',
+                    walk_in_phone: '',
+                    walk_in_email: '',
+                    walk_in_birth_date: '',
+                    walk_in_cpf: '',
                     specialty_id: appointment.specialty_id,
+                    package_id: appointment.patient_package?.package_id || '',
                     patient_package_id: appointment.patient_package_id || '',
                     date: format(startDateTime, 'yyyy-MM-dd'),
                     hour: format(startDateTime, 'HH:mm'),
+                    start_time: format(startDateTime, 'yyyy-MM-dd HH:mm:ss'),
                     status: appointment.status,
                     notes: appointment.notes || '',
                 });
             } else {
                 setData({
-                    professional_id: selectedProfessionalId || '',
+                    professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
+                    patient_mode: 'registered',
                     patient_id: '',
+                    walk_in_name: '',
+                    walk_in_phone: '',
+                    walk_in_email: '',
+                    walk_in_birth_date: '',
+                    walk_in_cpf: '',
                     specialty_id: '',
+                    package_id: '',
                     patient_package_id: '',
                     date: selectedDate || '',
                     hour: '08:00',
+                    start_time: '',
                     status: 'pendente',
                     notes: '',
                 });
@@ -85,29 +117,73 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     }, [show, appointment, selectedDate, selectedProfessionalId]);
 
     useEffect(() => {
-        if (data.specialty_id) {
-            const spec = specialties.find(s => s.id == data.specialty_id);
-            setDuration(spec ? spec.duration_minutes : 0);
+        if (data.date && data.hour) {
+            setData('start_time', `${data.date} ${data.hour}:00`);
         }
-    }, [data.specialty_id, specialties]);
+    }, [data.date, data.hour]);
+
+    useEffect(() => {
+        if (data.patient_mode === 'walk_in') {
+            setData('patient_id', '');
+            return;
+        }
+
+        setData('walk_in_name', '');
+        setData('walk_in_phone', '');
+        setData('walk_in_email', '');
+        setData('walk_in_birth_date', '');
+        setData('walk_in_cpf', '');
+    }, [data.patient_mode]);
+
+    const filteredPackages = data.specialty_id
+        ? packages.filter(pkg => String(pkg.specialty_id) === String(data.specialty_id))
+        : [];
+
+    const selectedSpecialty = specialties.find(s => String(s.id) === String(data.specialty_id));
+    const selectedDurationMinutes = selectedSpecialty?.duration_minutes || 30;
+
+    const parseServerDateTime = (value) => {
+        if (!value) return null;
+        const normalized = String(value).replace(' ', 'T');
+        return parseISO(normalized);
+    };
+
+    const isHourOccupied = (hour) => {
+        if (!data.professional_id || !data.date) return false;
+        if (data.professional_id === 'all') return false;
+
+        const slotStart = parseISO(`${data.date}T${hour}:00`);
+        const slotEnd = addMinutes(slotStart, selectedDurationMinutes);
+
+        return appointments.some((appt) => {
+            if (appointment && appt.id === appointment.id) return false;
+            if (String(appt.professional_id) !== String(data.professional_id)) return false;
+            if (appt.status === 'cancelado') return false;
+
+            const apptStart = parseServerDateTime(appt.start_time);
+            if (!apptStart || Number.isNaN(apptStart.getTime())) return false;
+
+            const apptEndRaw = parseServerDateTime(appt.end_time);
+            const apptEnd = apptEndRaw && !Number.isNaN(apptEndRaw.getTime())
+                ? apptEndRaw
+                : addMinutes(apptStart, 30);
+
+            return slotStart < apptEnd && slotEnd > apptStart;
+        });
+    };
 
     const submit = (e) => {
         e.preventDefault();
-        
-        const transformedData = {
-            ...data,
-            start_time: `${data.date} ${data.hour}:00`
-        };
 
         if (appointment) {
-            router.patch(route('appointments.update', appointment.id), transformedData, {
+            patch(route('appointments.update', appointment.id), {
                 onSuccess: () => {
                     reset();
                     onClose();
                 },
             });
         } else {
-            router.post(route('appointments.store'), transformedData, {
+            post(route('appointments.store'), {
                 onSuccess: () => {
                     reset();
                     onClose();
@@ -128,10 +204,17 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     </button>
                 </div>
 
-                {!isProfessionalWorking && (
+                {hasProfessionalAndDate && !isProfessionalWorking && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
                         <span className="material-symbols-outlined">warning</span>
                         <p className="text-xs font-bold uppercase tracking-wide">O profissional selecionado não atende nesta data.</p>
+                    </div>
+                )}
+
+                {(errors.hour || errors.start_time) && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+                        <span className="material-symbols-outlined">error</span>
+                        <p className="text-sm font-bold">{errors.hour || errors.start_time}</p>
                     </div>
                 )}
 
@@ -153,64 +236,143 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <InputError message={errors.professional_id} className="mt-2" />
                         </div>
 
-                        <div>
-                            <InputLabel value="Paciente" />
-                            <select
-                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
-                                value={data.patient_id}
-                                onChange={(e) => setData({ ...data, patient_id: e.target.value, patient_package_id: '' })}
-                                required
-                            >
-                                <option value="">Selecionar Paciente</option>
-                                {patients.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                            <InputError message={errors.patient_id} className="mt-2" />
-                        </div>
+                        {!appointment && (
+                            <div>
+                                <InputLabel value="Tipo de Paciente" />
+                                <select
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.patient_mode}
+                                    onChange={(e) => setData('patient_mode', e.target.value)}
+                                >
+                                    <option value="registered">Paciente cadastrado</option>
+                                    <option value="walk_in">Paciente avulso (cadastro rápido)</option>
+                                </select>
+                            </div>
+                        )}
 
-                        {/* Plano do paciente */}
-                        <div>
-                            <InputLabel value="Plano" />
-                            {(() => {
-                                const selectedPatient = patients.find(p => p.id == data.patient_id);
-                                const patientPlans = selectedPatient?.packages ?? [];
-                                return (
-                                    <select
-                                        className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary disabled:opacity-50"
-                                        value={data.patient_package_id}
-                                        onChange={(e) => setData('patient_package_id', e.target.value)}
-                                        disabled={!data.patient_id || patientPlans.length === 0}
-                                    >
-                                        <option value="">
-                                            {!data.patient_id ? 'Selecione um paciente primeiro' : patientPlans.length === 0 ? 'Sem planos cadastrados' : 'Nenhum plano (particular)'}
-                                        </option>
-                                        {patientPlans.map(pp => (
-                                            <option key={pp.id} value={pp.id}>
-                                                {pp.package?.name ?? `Plano #${pp.id}`}
-                                                {pp.status ? ` — ${pp.status}` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                );
-                            })()}
-                            <InputError message={errors.patient_package_id} className="mt-2" />
-                        </div>
+                        {data.patient_mode === 'registered' ? (
+                            <div>
+                                <InputLabel value="Paciente" />
+                                <select
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.patient_id}
+                                    onChange={(e) => {
+                                        setData('patient_id', e.target.value);
+                                        setData('patient_package_id', '');
+                                    }}
+                                    required={data.patient_mode === 'registered'}
+                                >
+                                    <option value="">Selecionar Paciente</option>
+                                    {patients.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.patient_id} className="mt-2" />
+                            </div>
+                        ) : (
+                            <div>
+                                <InputLabel value="Nome do Paciente" />
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.walk_in_name}
+                                    onChange={(e) => setData('walk_in_name', e.target.value)}
+                                    placeholder="Nome completo"
+                                    required={data.patient_mode === 'walk_in'}
+                                />
+                                <InputError message={errors.walk_in_name} className="mt-2" />
+                            </div>
+                        )}
+
+                        {data.patient_mode === 'walk_in' && (
+                            <>
+                                <div>
+                                    <InputLabel value="Telefone" />
+                                    <TextInput
+                                        className="w-full mt-1"
+                                        value={data.walk_in_phone}
+                                        onChange={(e) => setData('walk_in_phone', e.target.value)}
+                                        placeholder="(00) 00000-0000"
+                                    />
+                                    <InputError message={errors.walk_in_phone} className="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel value="Email" />
+                                    <TextInput
+                                        type="email"
+                                        className="w-full mt-1"
+                                        value={data.walk_in_email}
+                                        onChange={(e) => setData('walk_in_email', e.target.value)}
+                                        placeholder="email@exemplo.com"
+                                    />
+                                    <InputError message={errors.walk_in_email} className="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel value="CPF (opcional)" />
+                                    <TextInput
+                                        className="w-full mt-1"
+                                        value={data.walk_in_cpf}
+                                        onChange={(e) => setData('walk_in_cpf', e.target.value)}
+                                        placeholder="Somente números ou formato livre"
+                                    />
+                                    <InputError message={errors.walk_in_cpf} className="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel value="Nascimento (opcional)" />
+                                    <TextInput
+                                        type="date"
+                                        className="w-full mt-1"
+                                        value={data.walk_in_birth_date}
+                                        onChange={(e) => setData('walk_in_birth_date', e.target.value)}
+                                    />
+                                    <InputError message={errors.walk_in_birth_date} className="mt-2" />
+                                </div>
+                            </>
+                        )}
 
                         <div>
                             <InputLabel value="Especialidade" />
                             <select 
                                 className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.specialty_id}
-                                onChange={(e) => setData('specialty_id', e.target.value)}
+                                onChange={(e) => {
+                                    setData('specialty_id', e.target.value);
+                                    setData('package_id', '');
+                                    setData('patient_package_id', '');
+                                }}
                                 required
                             >
                                 <option value="">Selecionar Especialidade</option>
                                 {specialties.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name} ({s.duration_minutes} min)</option>
+                                    <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
                             <InputError message={errors.specialty_id} className="mt-2" />
+                        </div>
+
+                        {/* Plano da especialidade */}
+                        <div>
+                            <InputLabel value="Plano" />
+                            <select
+                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary disabled:opacity-50"
+                                value={data.package_id}
+                                onChange={(e) => {
+                                    setData('package_id', e.target.value);
+                                    setData('patient_package_id', '');
+                                }}
+                                disabled={!data.specialty_id || filteredPackages.length === 0}
+                            >
+                                <option value="">
+                                    {!data.specialty_id
+                                        ? 'Selecione a especialidade primeiro'
+                                        : filteredPackages.length === 0
+                                            ? 'Sem planos para esta especialidade'
+                                            : 'Nenhum plano (particular)'}
+                                </option>
+                                {filteredPackages.map(pkg => (
+                                    <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
+                                ))}
+                            </select>
+                            <InputError message={errors.package_id} className="mt-2" />
                         </div>
 
                         {appointment && (
@@ -248,12 +410,14 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                 <select 
                                     className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                     value={data.hour}
-                                    disabled={!isProfessionalWorking}
+                                    disabled={!isProfessionalWorking || availableHours.length === 0}
                                     onChange={(e) => setData('hour', e.target.value)}
                                     required
                                 >
                                     {availableHours.map(h => (
-                                        <option key={h} value={h}>{h}</option>
+                                        <option key={h} value={h} disabled={isHourOccupied(h)}>
+                                            {h}{isHourOccupied(h) ? ' (indisponível)' : ''}
+                                        </option>
                                     ))}
                                 </select>
                                 <InputError message={errors.hour} className="mt-2" />
@@ -273,7 +437,10 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                     <div className="flex items-center justify-end gap-3 pt-6 border-t border-stone-100 dark:border-stone-800">
                         <SecondaryButton onClick={onClose} type="button">Cancelar</SecondaryButton>
-                        <PrimaryButton className="px-8" disabled={processing || !isProfessionalWorking}>
+                        <PrimaryButton
+                            className="px-8"
+                            disabled={processing || (hasProfessionalAndDate && !isProfessionalWorking)}
+                        >
                             {processing ? 'Salvando...' : (appointment ? 'Atualizar Agendamento' : 'Confirmar Agendamento')}
                         </PrimaryButton>
                     </div>

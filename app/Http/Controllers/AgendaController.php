@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Patient;
+use App\Models\Package;
 use App\Models\Professional;
 use App\Models\Specialty;
 use App\Models\ClinicHour;
@@ -18,7 +19,7 @@ class AgendaController extends Controller
         $date = $request->date ? Carbon::parse($request->date) : Carbon::today();
         $professionalId = $request->professional_id;
 
-        $professionals = Professional::all();
+        $professionals = Professional::with('hours')->get();
 
         $daysTranslations = [
             'Monday'    => 'Segunda-feira',
@@ -37,7 +38,7 @@ class AgendaController extends Controller
             $professionalId = 'all';
         }
 
-        $query = Appointment::with(['patient', 'specialty', 'professional'])
+        $query = Appointment::with(['patient', 'specialty', 'professional', 'patientPackage.package'])
             ->whereDate('start_time', $date);
 
         $allProfessionalsHours = [];
@@ -71,7 +72,7 @@ class AgendaController extends Controller
         // For the "all" mode, also send the full month's appointments for the calendar
         $monthAppointments = [];
         if ($professionalId === 'all') {
-            $monthAppointments = Appointment::with(['patient', 'specialty', 'professional'])
+            $monthAppointments = Appointment::with(['patient', 'specialty', 'professional', 'patientPackage.package'])
                 ->whereBetween('start_time', [
                     $date->copy()->startOfMonth(),
                     $date->copy()->endOfMonth(),
@@ -84,6 +85,7 @@ class AgendaController extends Controller
             'professionals' => $professionals,
             'allProfessionalsHours' => $allProfessionalsHours,
             'patients' => Patient::with(['packages.package'])->orderBy('name')->get(),
+            'packages' => Package::orderBy('name')->get(['id', 'name', 'specialty_id', 'price', 'session_count']),
             'specialties' => Specialty::orderBy('name')->get(),
             'appointments' => $appointments,
             'monthAppointments' => $monthAppointments,
@@ -99,12 +101,45 @@ class AgendaController extends Controller
     {
         $validated = $request->validate([
             'professional_id'   => 'required|exists:professionals,id',
-            'patient_id'        => 'required|exists:patients,id',
+            'patient_id'        => 'nullable|exists:patients,id',
+            'patient_mode'      => 'nullable|in:registered,walk_in',
+            'walk_in_name'      => 'nullable|string|max:255',
+            'walk_in_phone'     => 'nullable|string|max:20',
+            'walk_in_email'     => 'nullable|email|max:255',
+            'walk_in_birth_date'=> 'nullable|date',
+            'walk_in_cpf'       => 'nullable|string|max:20|unique:patients,cpf',
             'specialty_id'      => 'required|exists:specialties,id',
+            'package_id'        => 'nullable|exists:packages,id',
             'patient_package_id'=> 'nullable|exists:patient_packages,id',
             'start_time'        => 'required|date',
             'notes'             => 'nullable|string',
         ]);
+
+        $patientMode = $validated['patient_mode'] ?? 'registered';
+        $patientId = $validated['patient_id'] ?? null;
+
+        if ($patientMode === 'walk_in') {
+            $request->validate([
+                'walk_in_name' => 'required|string|max:255',
+            ]);
+
+            $patient = Patient::create([
+                'name' => $validated['walk_in_name'],
+                'phone' => $validated['walk_in_phone'] ?? null,
+                'email' => $validated['walk_in_email'] ?? null,
+                'birth_date' => $validated['walk_in_birth_date'] ?? null,
+                'cpf' => $validated['walk_in_cpf'] ?? null,
+                'is_walk_in' => true,
+            ]);
+
+            $patientId = $patient->id;
+        }
+
+        if (!$patientId) {
+            return redirect()->back()->withErrors([
+                'patient_id' => 'Selecione um paciente cadastrado ou use paciente avulso.',
+            ]);
+        }
 
         $startTime = Carbon::parse($request->start_time);
         $specialty = Specialty::findOrFail($request->specialty_id);
@@ -138,9 +173,67 @@ class AgendaController extends Controller
             ]);
         }
 
-        $validated['end_time'] = $endTime;
+        $hasConflict = Appointment::query()
+            ->where('professional_id', $validated['professional_id'])
+            ->where('status', '!=', 'cancelado')
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where('start_time', '=', $startTime)
+                    ->orWhere(function ($overlap) use ($startTime, $endTime) {
+                        $overlap->whereNotNull('end_time')
+                            ->where('start_time', '<', $endTime)
+                            ->where('end_time', '>', $startTime);
+                    });
+            })
+            ->exists();
 
-        Appointment::create($validated);
+        if ($hasConflict) {
+            return redirect()->back()->withErrors([
+                'hour' => 'Horário não disponível, escolha outro horário.',
+                'start_time' => 'Horário não disponível, escolha outro horário.',
+            ]);
+        }
+
+        $patient = Patient::findOrFail($patientId);
+        $patientPackageId = $validated['patient_package_id'] ?? null;
+
+        if (!$patientPackageId && !empty($validated['package_id'])) {
+            $selectedPackage = Package::findOrFail($validated['package_id']);
+
+            $existingPatientPackage = $patient->packages()
+                ->where('package_id', $selectedPackage->id)
+                ->where('status', 'active')
+                ->latest()
+                ->first();
+
+            if ($existingPatientPackage) {
+                $patientPackageId = $existingPatientPackage->id;
+            } else {
+                $newPatientPackage = $patient->packages()->create([
+                    'package_id' => $selectedPackage->id,
+                    'start_date' => $startTime->toDateString(),
+                    'end_date' => null,
+                    'billing_day' => null,
+                    'price' => $selectedPackage->price,
+                    'session_count' => $selectedPackage->session_count,
+                    'status' => 'active',
+                    'payment_status' => 'pending',
+                    'notes' => 'Plano vinculado automaticamente no agendamento.',
+                ]);
+
+                $patientPackageId = $newPatientPackage->id;
+            }
+        }
+
+        Appointment::create([
+            'professional_id' => $validated['professional_id'],
+            'patient_id' => $patientId,
+            'specialty_id' => $validated['specialty_id'],
+            'patient_package_id' => $patientPackageId,
+            'start_time' => $validated['start_time'],
+            'end_time' => $endTime,
+            'status' => 'pendente',
+            'notes' => $validated['notes'] ?? null,
+        ]);
 
         return redirect()->back()->with('success', 'Agendamento realizado com sucesso!');
     }
@@ -152,6 +245,7 @@ class AgendaController extends Controller
             'professional_id'   => 'required|exists:professionals,id',
             'patient_id'        => 'required|exists:patients,id',
             'specialty_id'      => 'required|exists:specialties,id',
+            'package_id'        => 'nullable|exists:packages,id',
             'patient_package_id'=> 'nullable|exists:patient_packages,id',
             'start_time'        => 'required|date',
             'notes'             => 'nullable|string',
@@ -189,8 +283,68 @@ class AgendaController extends Controller
             ]);
         }
 
-        $validated['end_time'] = $endTime;
-        $appointment->update($validated);
+        $hasConflict = Appointment::query()
+            ->where('professional_id', $validated['professional_id'])
+            ->where('status', '!=', 'cancelado')
+            ->where('id', '!=', $appointment->id)
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where('start_time', '=', $startTime)
+                    ->orWhere(function ($overlap) use ($startTime, $endTime) {
+                        $overlap->whereNotNull('end_time')
+                            ->where('start_time', '<', $endTime)
+                            ->where('end_time', '>', $startTime);
+                    });
+            })
+            ->exists();
+
+        if ($hasConflict) {
+            return redirect()->back()->withErrors([
+                'hour' => 'Horário não disponível, escolha outro horário.',
+                'start_time' => 'Horário não disponível, escolha outro horário.',
+            ]);
+        }
+
+        $patientPackageId = $validated['patient_package_id'] ?? null;
+
+        if (!$patientPackageId && !empty($validated['package_id'])) {
+            $selectedPackage = Package::findOrFail($validated['package_id']);
+            $patient = Patient::findOrFail($validated['patient_id']);
+
+            $existingPatientPackage = $patient->packages()
+                ->where('package_id', $selectedPackage->id)
+                ->where('status', 'active')
+                ->latest()
+                ->first();
+
+            if ($existingPatientPackage) {
+                $patientPackageId = $existingPatientPackage->id;
+            } else {
+                $newPatientPackage = $patient->packages()->create([
+                    'package_id' => $selectedPackage->id,
+                    'start_date' => $startTime->toDateString(),
+                    'end_date' => null,
+                    'billing_day' => null,
+                    'price' => $selectedPackage->price,
+                    'session_count' => $selectedPackage->session_count,
+                    'status' => 'active',
+                    'payment_status' => 'pending',
+                    'notes' => 'Plano vinculado automaticamente no agendamento.',
+                ]);
+
+                $patientPackageId = $newPatientPackage->id;
+            }
+        }
+
+        $appointment->update([
+            'status' => $validated['status'],
+            'professional_id' => $validated['professional_id'],
+            'patient_id' => $validated['patient_id'],
+            'specialty_id' => $validated['specialty_id'],
+            'patient_package_id' => $patientPackageId,
+            'start_time' => $validated['start_time'],
+            'end_time' => $endTime,
+            'notes' => $validated['notes'] ?? null,
+        ]);
 
         return redirect()->back()->with('success', 'Agendamento atualizado com sucesso!');
     }

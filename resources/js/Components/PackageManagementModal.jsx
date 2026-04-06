@@ -9,6 +9,12 @@ import { useForm } from '@inertiajs/react';
 import axios from 'axios';
 
 export default function PackageManagementModal({ show, onClose, specialty }) {
+    const durationUnits = [
+        { value: 'minutes', label: 'Minutos' },
+        { value: 'months', label: 'Meses' },
+        { value: 'sessions', label: 'Sessões' },
+    ];
+
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -16,6 +22,8 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
         name: '',
         session_count: '',
         price: '',
+        duration_value: '',
+        duration_unit: 'months',
     });
 
     useEffect(() => {
@@ -54,6 +62,20 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
         }
     };
 
+    const durationLabel = (pkg) => {
+        const value = pkg.duration_value || pkg.duration_months;
+        const unit = pkg.duration_unit || (pkg.duration_months ? 'months' : null);
+        if (!value || !unit) return null;
+
+        const labels = {
+            minutes: 'minutos',
+            months: 'meses',
+            sessions: 'sessões',
+        };
+
+        return `${value} ${labels[unit] ?? unit}`;
+    };
+
     if (!specialty) return null;
 
     return (
@@ -70,7 +92,6 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Add New Package Form */}
                     <div className="bg-stone-50 dark:bg-stone-800/50 p-6 rounded-2xl border border-stone-100 dark:border-stone-800 h-fit">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">add_circle</span>
@@ -103,6 +124,32 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                             </div>
 
                             <div>
+                                <InputLabel htmlFor="duration_value" value="Duração" />
+                                <div className="mt-1 flex gap-2">
+                                    <TextInput
+                                        id="duration_value"
+                                        type="number"
+                                        min="1"
+                                        className="block w-1/2"
+                                        value={data.duration_value}
+                                        onChange={(e) => setData('duration_value', e.target.value)}
+                                        placeholder="Valor"
+                                    />
+                                    <select
+                                        className="w-1/2 border-stone-200 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                        value={data.duration_unit}
+                                        onChange={(e) => setData('duration_unit', e.target.value)}
+                                    >
+                                        {durationUnits.map((unit) => (
+                                            <option key={unit.value} value={unit.value}>{unit.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <InputError message={errors.duration_value} className="mt-2" />
+                                <InputError message={errors.duration_unit} className="mt-2" />
+                            </div>
+
+                            <div>
                                 <InputLabel htmlFor="price" value="Valor Mensal (R$)" />
                                 <TextInput
                                     id="price"
@@ -122,7 +169,6 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                         </form>
                     </div>
 
-                    {/* Packages List */}
                     <div>
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">list</span>
@@ -149,12 +195,15 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
                                                 {pkg.session_count && (
                                                     <div>{pkg.session_count} sessões</div>
                                                 )}
+                                                {durationLabel(pkg) && (
+                                                    <div>Duração: {durationLabel(pkg)}</div>
+                                                )}
                                                 <div className="font-bold text-[#466250] text-sm pt-1">
                                                     R$ {parseFloat(pkg.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /mês
                                                 </div>
                                             </div>
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => deletePackage(pkg.id)}
                                             className="p-2 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                                         >
@@ -174,3 +223,4 @@ export default function PackageManagementModal({ show, onClose, specialty }) {
         </Modal>
     );
 }
+

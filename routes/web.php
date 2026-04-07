@@ -34,7 +34,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('professionals', ProfessionalController::class);
     Route::resource('patients', PatientController::class);
     Route::resource('specialties', SpecialtyController::class);
-    
+    Route::post('/specialties/{specialty}/subgroups', [\App\Http\Controllers\SpecialtySubgroupController::class, 'store'])->name('specialties.subgroups.store');
+    Route::delete('/specialties/{specialty}/subgroups/{subgroup}', [\App\Http\Controllers\SpecialtySubgroupController::class, 'destroy'])->name('specialties.subgroups.destroy');
+
     Route::prefix('specialties/{specialty}')->name('packages.')->group(function () {
         Route::get('/packages', [\App\Http\Controllers\PackageController::class, 'index'])->name('index');
         Route::post('/packages', [\App\Http\Controllers\PackageController::class, 'store'])->name('store');

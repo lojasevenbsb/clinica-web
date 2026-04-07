@@ -19,7 +19,7 @@ class AgendaController extends Controller
         $date = $request->date ? Carbon::parse($request->date) : Carbon::today();
         $professionalId = $request->professional_id;
 
-        $professionals = Professional::with('hours')->get();
+        $professionals = Professional::with(['hours', 'specialties'])->get();
 
         $daysTranslations = [
             'Monday'    => 'Segunda-feira',
@@ -57,6 +57,7 @@ class AgendaController extends Controller
                 return [
                     'id'        => $prof->id,
                     'name'      => $prof->name,
+                    'nickname'  => $prof->nickname,
                     'color'     => $prof->color ?? '#6366f1',
                     'day_hours' => $dayHours ? [
                         'is_open'    => (bool) $dayHours->is_open,

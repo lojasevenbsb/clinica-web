@@ -32,6 +32,10 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     const [availableHours, setAvailableHours] = useState([]);
     const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
     const hasProfessionalAndDate = Boolean(data.professional_id) && Boolean(data.date);
+    const selectedProfessional = professionals.find(p => String(p.id) === String(data.professional_id));
+    const availableSpecialties = selectedProfessional?.specialties?.length
+        ? specialties.filter(s => selectedProfessional.specialties.some(ps => ps.id === s.id))
+        : specialties;
     const selectedSpecialty = specialties.find(s => String(s.id) === String(data.specialty_id));
     const selectedDurationMinutes = Number(selectedSpecialty?.duration_minutes) || 30;
     const SLOT_INTERVAL_MINUTES = 30;
@@ -253,7 +257,9 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <select 
                                 className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.professional_id}
-                                onChange={(e) => setData('professional_id', e.target.value)}
+                                onChange={(e) => {
+                                    setData(d => ({ ...d, professional_id: e.target.value, specialty_id: '', package_id: '', patient_package_id: '' }));
+                                }}
                                 required
                             >
                                 <option value="">Selecionar Profissional</option>
@@ -370,7 +376,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                 required
                             >
                                 <option value="">Selecionar Especialidade</option>
-                                {specialties.map(s => (
+                                {availableSpecialties.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>

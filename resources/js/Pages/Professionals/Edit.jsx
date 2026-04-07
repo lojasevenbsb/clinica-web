@@ -33,6 +33,7 @@ export default function Edit({ professional, specialties }) {
 
     const { data, setData, patch, processing, errors } = useForm({
         name: professional.name,
+        nickname: professional.nickname || '',
         registration_number: professional.registration_number || '',
         email: professional.email || '',
         phone: professional.phone || '',
@@ -80,6 +81,17 @@ export default function Edit({ professional, specialties }) {
                                     required
                                 />
                                 <InputError message={errors.name} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Apelido" />
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.nickname}
+                                    onChange={(e) => setData('nickname', e.target.value)}
+                                    placeholder="Como é chamado(a)"
+                                />
+                                <InputError message={errors.nickname} className="mt-2" />
                             </div>
 
                             <div>

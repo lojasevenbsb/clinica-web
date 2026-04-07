@@ -175,8 +175,8 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                         >
                             {prof.name.charAt(0)}
                         </div>
-                        <span className="text-xs font-bold text-on-surface text-center truncate w-full text-center">{prof.name}</span>
-                        <span className="text-[10px] text-outline">
+                        <span className="text-xs font-bold text-on-surface text-center truncate w-full text-center">{prof.nickname || prof.name}</span>
+                        <span className="text-sm text-outline">
                             {prof.day_hours.open_time.substring(0, 5)}–{prof.day_hours.close_time.substring(0, 5)}
                         </span>
                     </div>
@@ -205,17 +205,30 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                 )}
 
                 {/* Slot rows */}
-                {slots.map(({ hour: h, minute: m }) => (
+                {(() => {
+                    const coveredPerProf = {};
+                    return slots.map(({ hour: h, minute: m }) => {
+                    const slotAbsMin = h * 60 + m;
+                    // Check if all working profs have this slot covered — if so, skip row entirely
+                    // We'll handle per-prof coverage inside each cell
+                    return (
                     <div
                         key={`${h}-${m}`}
                         className="flex border-b border-outline-variant/20 last:border-b-0"
                         style={{ minHeight: SLOT_HEIGHT }}
                     >
                         {/* Time label */}
-                        <div className="w-20 flex-shrink-0 flex flex-col items-center justify-start pt-2 border-r border-outline-variant/20 bg-surface-container-low/40">
-                            <span className={`font-bold text-primary ${slotInterval < 60 ? 'text-xs' : 'text-sm'}`}>
+                        <div className="w-20 flex-shrink-0 flex flex-col items-end justify-start border-r border-outline-variant/20 bg-surface-container-low/40" style={{ paddingTop: 8, paddingRight: 6 }}>
+                            <span className={`font-bold text-primary self-center ${slotInterval < 60 ? 'text-xs' : 'text-sm'}`} style={{ paddingRight: 6 }}>
                                 {h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}
                             </span>
+                            {slotInterval === 60 && (
+                                <div className="flex flex-col justify-around flex-1 w-full items-end" style={{ paddingTop: 4, paddingBottom: 4, paddingRight: 4 }}>
+                                    {[1,2,3,4,5].map(i => (
+                                        <div key={i} style={{ height: 1, background: 'rgba(114,121,115,0.5)', width: i === 3 ? 10 : 6 }} />
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Professional columns */}
@@ -225,6 +238,18 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                             const slotAbsMin = h * 60 + m;
                             const isWorking  = slotAbsMin >= profStartH * 60 && slotAbsMin < profEndH * 60;
                             const apps       = appsByProfSlot[`${prof.id}-${h}-${m}`] || [];
+
+                            // Skip cell if covered by an ongoing appointment for this prof
+                            if (coveredPerProf[prof.id] && slotAbsMin < coveredPerProf[prof.id]) {
+                                return null;
+                            }
+                            // Update coverage
+                            apps.forEach(app => {
+                                const endMin = new Date(app.end_time).getHours() * 60 + new Date(app.end_time).getMinutes();
+                                if (!coveredPerProf[prof.id] || endMin > coveredPerProf[prof.id]) {
+                                    coveredPerProf[prof.id] = endMin;
+                                }
+                            });
 
                             return (
                                 <div
@@ -248,11 +273,14 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                         apps.map(app => {
                                             const specColor = app.specialty?.color || '#6366f1';
                                             const isCanceled = app.status === 'cancelado';
+                                            const durationMin = (new Date(app.end_time) - new Date(app.start_time)) / 60000;
+                                            const cardHeight = Math.max(SLOT_HEIGHT - 4, (durationMin / slotInterval) * SLOT_HEIGHT - 4);
                                             return (
                                                 <div
                                                     key={app.id}
                                                     className={`flex-1 min-w-[100px] border border-l-4 rounded-lg p-2 flex flex-col gap-0.5 shadow-sm group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
                                                     style={{
+                                                        minHeight: cardHeight,
                                                         backgroundColor: specColor + '18',
                                                         borderColor: specColor + '40',
                                                         borderLeftColor: specColor,
@@ -284,7 +312,8 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                             );
                         })}
                     </div>
-                ))}
+                    );});
+                })()}
             </div>
         </div>
     );
@@ -330,6 +359,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
             const label   = `${slotH.toString().padStart(2, '0')}:${slotM.toString().padStart(2, '0')}`;
             slots.push({
                 label,
+                absMin,
                 appointments: appointments.filter(app => {
                     const dt = parseISO(app.start_time);
                     const appH = dt.getHours();
@@ -498,7 +528,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                 {p.name.charAt(0)}
                             </div>
                             <span className={`text-sm font-bold ${selectedProfessionalId == p.id ? 'text-on-primary' : 'text-on-surface'}`}>
-                                {p.name}
+                                {p.nickname || p.name}
                             </span>
                             {selectedProfessionalId == p.id && (
                                 <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
@@ -595,12 +625,37 @@ export default function Agenda({ professionals, patients, specialties, packages,
                             </div>
                         </div>
 
-                        {hours.map((hourObj) => {
+                        {(() => {
+                            let coveredUntilMin = 0;
+                            return hours.map((hourObj) => {
                             const slotMinHeight = slotInterval === 60 ? 90 : slotInterval === 30 ? 52 : 32;
+
+                            // Skip this slot if it's covered by an ongoing appointment
+                            if (hourObj.absMin < coveredUntilMin) return null;
+
+                            // Update coveredUntilMin for appointments starting in this slot
+                            hourObj.appointments.forEach(app => {
+                                const endMin = new Date(app.end_time).getHours() * 60 + new Date(app.end_time).getMinutes();
+                                if (endMin > coveredUntilMin) coveredUntilMin = endMin;
+                            });
+
                             return (
                             <div key={hourObj.label} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-x-px bg-outline-variant/30 border-x border-b border-outline-variant/30 last:rounded-b-2xl overflow-hidden">
-                                <div className="bg-surface-container-low px-4 flex flex-col items-center justify-center" style={{ minHeight: slotMinHeight }}>
-                                    <span className={`font-bold text-primary ${slotInterval < 60 ? 'text-xs' : 'text-lg'}`}>{hourObj.label}</span>
+                                <div className="bg-surface-container-low flex flex-col" style={{ minHeight: slotMinHeight }}>
+                                    {Array.from({ length: slotInterval / 10 }).map((_, i) => (
+                                        <div key={i} className="flex-1 flex items-start justify-end pr-2 pt-1 relative">
+                                            {i === 0 ? (
+                                                <span className={`font-bold text-primary ${slotInterval < 60 ? 'text-xs' : 'text-lg'}`}>{hourObj.label}</span>
+                                            ) : (
+                                                <div style={{
+                                                    width: i === 3 ? 10 : 6,
+                                                    height: 1,
+                                                    background: 'rgba(114,121,115,0.45)',
+                                                    marginTop: 4,
+                                                }} />
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                                 <div className="bg-white p-2 flex flex-wrap gap-2">
                                     {hourObj.appointments.length === 0 ? (
@@ -615,13 +670,15 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                         hourObj.appointments.map(app => {
                                             const specColor = app.specialty?.color || '#6366f1';
                                             const isCanceled = app.status === 'cancelado';
+                                            const durationMin = (new Date(app.end_time) - new Date(app.start_time)) / 60000;
+                                            const cardHeight = Math.max(slotMinHeight - 8, (durationMin / slotInterval) * slotMinHeight - 8);
 
                                             return (
                                                 <div
                                                     key={app.id}
                                                     className={`min-w-[250px] flex-1 border border-l-4 rounded-xl p-3 flex flex-col justify-between shadow-sm relative group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
                                                     style={{
-                                                        minHeight: slotMinHeight - 8,
+                                                        minHeight: cardHeight,
                                                         backgroundColor: specColor + '18',
                                                         borderColor: specColor + '40',
                                                         borderLeftColor: specColor,
@@ -671,7 +728,8 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                     )}
                                 </div>
                             </div>
-                        ); })}
+                        ); });
+                        })()}
                     </>
                 )}
             </section>

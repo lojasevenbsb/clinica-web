@@ -64,13 +64,14 @@ export default function Index({ specialties }) {
                             <tr className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800">
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Cor</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Nome da Especialidade</th>
+                                <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Duração</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                             {specialties.length === 0 ? (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-12 text-center text-stone-500">
+                                    <td colSpan="4" className="px-6 py-12 text-center text-stone-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <span className="material-symbols-outlined text-4xl text-stone-300">category</span>
                                             <span>Nenhuma especialidade cadastrada.</span>
@@ -88,6 +89,20 @@ export default function Index({ specialties }) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-stone-800 dark:text-stone-200">{specialty.name}</div>
+                                            {specialty.subgroups?.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {specialty.subgroups.map(sub => (
+                                                        <span key={sub.id} className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: (specialty.color || '#6366f1') + '18', color: specialty.color || '#6366f1' }}>
+                                                            {sub.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm text-stone-500">
+                                                {specialty.duration_minutes ? `${specialty.duration_minutes} min` : '—'}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">

@@ -20,4 +20,9 @@ class Specialty extends Model
     {
         return $this->hasMany(Package::class);
     }
+
+    public function subgroups()
+    {
+        return $this->hasMany(SpecialtySubgroup::class)->orderBy('name');
+    }
 }

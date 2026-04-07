@@ -15,6 +15,7 @@ export default function Create() {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         color: '#6366f1',
+        duration_minutes: '',
     });
 
     const submit = (e) => {
@@ -81,6 +82,20 @@ export default function Create() {
                             <span className="text-sm text-stone-500">{data.color}</span>
                         </div>
                         <InputError message={errors.color} className="mt-2" />
+                    </div>
+
+                    <div>
+                        <InputLabel htmlFor="duration_minutes" value="Duração (minutos)" />
+                        <TextInput
+                            id="duration_minutes"
+                            type="number"
+                            min="1"
+                            className="mt-1 block w-full"
+                            value={data.duration_minutes}
+                            onChange={(e) => setData('duration_minutes', e.target.value)}
+                            placeholder="Ex: 50"
+                        />
+                        <InputError message={errors.duration_minutes} className="mt-2" />
                     </div>
 
                     <div className="flex items-center justify-end mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">

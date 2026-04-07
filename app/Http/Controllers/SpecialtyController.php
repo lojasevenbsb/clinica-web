@@ -16,7 +16,7 @@ class SpecialtyController extends Controller
     public function index()
     {
         return Inertia::render('Specialties/Index', [
-            'specialties' => Specialty::orderBy('name')->get()
+            'specialties' => Specialty::with('subgroups')->orderBy('name')->get()
         ]);
     }
 
@@ -30,6 +30,7 @@ class SpecialtyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:specialties,name',
             'color' => 'required|string|max:7',
+            'duration_minutes' => 'nullable|integer|min:1',
         ]);
 
         Specialty::create($validated);
@@ -40,7 +41,7 @@ class SpecialtyController extends Controller
     public function edit(Specialty $specialty)
     {
         return Inertia::render('Specialties/Edit', [
-            'specialty' => $specialty
+            'specialty' => $specialty->load('subgroups')
         ]);
     }
 
@@ -49,6 +50,7 @@ class SpecialtyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:specialties,name,' . $specialty->id,
             'color' => 'required|string|max:7',
+            'duration_minutes' => 'nullable|integer|min:1',
         ]);
 
         $specialty->update($validated);

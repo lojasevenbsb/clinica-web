@@ -6,7 +6,12 @@
       "Bash(find /c/Projetos/Clinica/app -type f -name *Package*.php -o -name *Patient*.php)",
       "mcp__Claude_Preview__preview_start",
       "Bash(php artisan:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node --input-type=module)",
+      "Bash(npx --yes acorn --ecma2020 --module resources/js/Pages/Agenda.jsx)",
+      "Bash(python3 -c ':*)",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"process.stdout.write\\('test'\\)\")"
     ]
   }
 }

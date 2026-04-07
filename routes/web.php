@@ -35,6 +35,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('patients', PatientController::class);
     Route::resource('specialties', SpecialtyController::class);
     Route::post('/specialties/{specialty}/subgroups', [\App\Http\Controllers\SpecialtySubgroupController::class, 'store'])->name('specialties.subgroups.store');
+    Route::put('/specialties/{specialty}/subgroups/{subgroup}', [\App\Http\Controllers\SpecialtySubgroupController::class, 'update'])->name('specialties.subgroups.update');
     Route::delete('/specialties/{specialty}/subgroups/{subgroup}', [\App\Http\Controllers\SpecialtySubgroupController::class, 'destroy'])->name('specialties.subgroups.destroy');
 
     Route::prefix('specialties/{specialty}')->name('packages.')->group(function () {

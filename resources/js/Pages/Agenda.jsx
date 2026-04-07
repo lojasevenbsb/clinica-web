@@ -6,6 +6,18 @@ import { format, addDays, subDays, startOfWeek, isSameDay, parseISO, startOfMont
 import { ptBR } from 'date-fns/locale/pt-BR';
 
 /* ─────────────────────────────────────────
+   Status helper
+───────────────────────────────────────── */
+function statusStyle(status) {
+    switch (status) {
+        case 'confirmado': return { label: 'Confirmado', bg: 'bg-emerald-500', text: 'text-white' };
+        case 'cancelado':  return { label: 'Cancelado',  bg: 'bg-red-500',     text: 'text-white' };
+        case 'atendido':   return { label: 'Atendido',   bg: 'bg-blue-500',    text: 'text-white' };
+        default:           return { label: 'Pendente',   bg: 'bg-amber-400',   text: 'text-white' };
+    }
+}
+
+/* ─────────────────────────────────────────
    Monthly Calendar Component
 ───────────────────────────────────────── */
 function MonthCalendar({ selectedDate, monthAppointments, onDayClick, onPrevMonth, onNextMonth, onNewAppointment }) {
@@ -241,7 +253,13 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
 
                             // Skip cell if covered by an ongoing appointment for this prof
                             if (coveredPerProf[prof.id] && slotAbsMin < coveredPerProf[prof.id]) {
-                                return null;
+                                return (
+                                    <div
+                                        key={prof.id}
+                                        className="flex-1 min-w-0 p-1.5 border-r border-outline-variant/20 last:border-r-0"
+                                        aria-hidden="true"
+                                    />
+                                );
                             }
                             // Update coverage
                             apps.forEach(app => {
@@ -275,10 +293,11 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                             const isCanceled = app.status === 'cancelado';
                                             const durationMin = (new Date(app.end_time) - new Date(app.start_time)) / 60000;
                                             const cardHeight = Math.max(SLOT_HEIGHT - 4, (durationMin / slotInterval) * SLOT_HEIGHT - 4);
+                                            const { label: stLabel, bg: stBg, text: stText } = statusStyle(app.status);
                                             return (
                                                 <div
                                                     key={app.id}
-                                                    className={`flex-1 min-w-[100px] border border-l-4 rounded-lg p-2 flex flex-col gap-0.5 shadow-sm group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
+                                                    className={`flex-1 min-w-[100px] border border-l-4 rounded-lg flex flex-col shadow-sm group overflow-hidden ${isCanceled ? 'opacity-50 grayscale' : ''}`}
                                                     style={{
                                                         minHeight: cardHeight,
                                                         backgroundColor: specColor + '18',
@@ -287,23 +306,28 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                                         color: specColor,
                                                     }}
                                                 >
-                                                    <div className="flex items-start justify-between gap-1">
-                                                        <span className="text-xs font-bold text-on-surface truncate leading-tight">{app.patient.name}</span>
-                                                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                                            <button onClick={() => onEditAppointment(app)} className="p-0.5 hover:bg-black/5 rounded">
-                                                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>edit</span>
-                                                            </button>
-                                                            <button onClick={() => onDeleteAppointment(app)} className="p-0.5 hover:bg-black/5 rounded text-red-500">
-                                                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>delete</span>
-                                                            </button>
+                                                    <div className="flex-1 p-2 flex flex-col gap-0.5">
+                                                        <div className="flex items-start justify-between gap-1">
+                                                            <span className="text-xs font-bold text-on-surface truncate leading-tight">{app.patient.name}</span>
+                                                            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                                                <button onClick={() => onEditAppointment(app)} className="p-0.5 hover:bg-black/5 rounded">
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>edit</span>
+                                                                </button>
+                                                                <button onClick={() => onDeleteAppointment(app)} className="p-0.5 hover:bg-black/5 rounded text-red-500">
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>delete</span>
+                                                                </button>
+                                                            </div>
                                                         </div>
+                                                        <span className="text-[10px] font-medium opacity-60">
+                                                            {format(parseISO(app.start_time), 'HH:mm')}–{format(parseISO(app.end_time), 'HH:mm')}
+                                                        </span>
+                                                        {app.specialty?.name && (
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 truncate">{app.specialty.name}</span>
+                                                        )}
                                                     </div>
-                                                    <span className="text-[10px] font-medium opacity-60">
-                                                        {format(parseISO(app.start_time), 'HH:mm')}–{format(parseISO(app.end_time), 'HH:mm')}
-                                                    </span>
-                                                    {app.specialty?.name && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 truncate">{app.specialty.name}</span>
-                                                    )}
+                                                    <div className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-center ${stBg} ${stText}`}>
+                                                        {stLabel}
+                                                    </div>
                                                 </div>
                                             );
                                         })
@@ -325,6 +349,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
     const [selectedProfessionalId, setSelectedProfessionalId] = useState(filters.professional_id);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [dayViewActive, setDayViewActive] = useState(filters.professional_id === 'all');
+    const [geralMode, setGeralMode] = useState(filters.view === 'month');
     const [slotInterval, setSlotInterval] = useState(() => {
         const saved = localStorage.getItem('agenda_slot_interval');
         return saved ? parseInt(saved) : 60;
@@ -381,10 +406,34 @@ export default function Agenda({ professionals, patients, specialties, packages,
     const handleDateSelect = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         setSelectedDate(dateStr);
-        router.get(route('agenda'), { 
+        router.get(route('agenda'), {
             date: dateStr,
-            professional_id: selectedProfessionalId 
+            professional_id: selectedProfessionalId,
+            ...(geralMode ? { view: 'month' } : {}),
         }, { preserveState: true });
+    };
+
+    const handleGeralMode = () => {
+        setGeralMode(true);
+        router.get(route('agenda'), {
+            date: selectedDate,
+            professional_id: 'all',
+            view: 'month',
+        }, { preserveState: true });
+    };
+
+    const handlePrevMonth = () => {
+        const prev = subMonths(parseISO(selectedDate), 1);
+        const dateStr = format(startOfMonth(prev), 'yyyy-MM-dd');
+        setSelectedDate(dateStr);
+        router.get(route('agenda'), { date: dateStr, professional_id: 'all', view: 'month' }, { preserveState: true });
+    };
+
+    const handleNextMonth = () => {
+        const next = addMonths(parseISO(selectedDate), 1);
+        const dateStr = format(startOfMonth(next), 'yyyy-MM-dd');
+        setSelectedDate(dateStr);
+        router.get(route('agenda'), { date: dateStr, professional_id: 'all', view: 'month' }, { preserveState: true });
     };
 
     const handlePrevWeek = () => {
@@ -414,9 +463,10 @@ export default function Agenda({ professionals, patients, specialties, packages,
     const handleProfessionalSelect = (id) => {
         setSelectedProfessionalId(id);
         setDayViewActive(id === 'all');
+        setGeralMode(false);
         router.get(route('agenda'), {
             date: selectedDate,
-            professional_id: id
+            professional_id: id,
         }, { preserveState: true });
     };
 
@@ -479,22 +529,6 @@ export default function Agenda({ professionals, patients, specialties, packages,
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <label className="text-xs font-bold text-primary tracking-widest uppercase">Selecionar Profissional</label>
                     <div className="flex items-center gap-3">
-                        {/* Slot interval selector */}
-                        <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-base text-outline">schedule</span>
-                            <span className="text-xs font-bold text-outline uppercase tracking-widest">Intervalo:</span>
-                            <div className="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
-                                {[15, 30, 60].map(interval => (
-                                    <button
-                                        key={interval}
-                                        onClick={() => handleSlotInterval(interval)}
-                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${slotInterval === interval ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:bg-surface-container'}`}
-                                    >
-                                        {interval === 60 ? '1h' : `${interval}min`}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                         <button
                             onClick={() => handleDateSelect(new Date())}
                             className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -506,14 +540,27 @@ export default function Agenda({ professionals, patients, specialties, packages,
                 </div>
                 <div className="flex flex-wrap gap-4">
                     <button
+                        onClick={handleGeralMode}
+                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${geralMode ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
+                    >
+                        <span className="material-symbols-outlined">calendar_month</span>
+                        <span className={`text-sm font-bold ${geralMode ? 'text-on-primary' : 'text-on-surface'}`}>
+                            Geral
+                        </span>
+                        {geralMode && (
+                            <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
+                        )}
+                    </button>
+
+                    <button
                         onClick={() => handleProfessionalSelect('all')}
-                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId === 'all' ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
+                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId === 'all' && !geralMode ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
                     >
                         <span className="material-symbols-outlined">group</span>
-                        <span className={`text-sm font-bold ${selectedProfessionalId === 'all' ? 'text-on-primary' : 'text-on-surface'}`}>
+                        <span className={`text-sm font-bold ${selectedProfessionalId === 'all' && !geralMode ? 'text-on-primary' : 'text-on-surface'}`}>
                             Todos
                         </span>
-                        {selectedProfessionalId === 'all' && (
+                        {selectedProfessionalId === 'all' && !geralMode && (
                             <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
                         )}
                     </button>
@@ -538,8 +585,26 @@ export default function Agenda({ professionals, patients, specialties, packages,
                 </div>
             </section>
 
+            {/* Geral — Monthly Calendar */}
+            {geralMode && (
+                <MonthCalendar
+                    selectedDate={parseISO(selectedDate)}
+                    monthAppointments={monthAppointments}
+                    onDayClick={(day) => {
+                        setGeralMode(false);
+                        handleProfessionalSelect('all');
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        setSelectedDate(dateStr);
+                        router.get(route('agenda'), { date: dateStr, professional_id: 'all' }, { preserveState: true });
+                    }}
+                    onPrevMonth={handlePrevMonth}
+                    onNextMonth={handleNextMonth}
+                    onNewAppointment={() => setShowModal(true)}
+                />
+            )}
+
             {/* Horizontal Date Selector */}
-            <section className="bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 mt-4 relative">
+            <section className={`bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 mt-4 relative ${geralMode ? 'hidden' : ''}`}>
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={handlePrevWeek}
@@ -578,7 +643,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
             </section>
 
             {/* All-professionals multi-column grid */}
-            {isAllMode && (
+            {isAllMode && !geralMode && (
                 <AllProfessionalsGrid
                     allProfessionalsHours={allProfessionalsHours}
                     appointments={appointments}
@@ -594,8 +659,8 @@ export default function Agenda({ professionals, patients, specialties, packages,
                 />
             )}
 
-            {/* Single-professional grid — hidden in all mode */}
-            <section className={`space-y-1 mt-4 ${isAllMode ? 'hidden' : ''}`}>
+            {/* Single-professional grid — hidden in all mode or geral mode */}
+            <section className={`space-y-1 mt-4 ${isAllMode || geralMode ? 'hidden' : ''}`}>
                 {!isProfessionalWorking ? (
                     <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-12 flex flex-col items-center text-center gap-4">
                         <div className="w-20 h-20 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center text-stone-400">
@@ -716,11 +781,11 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                                             {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between mt-2">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{app.specialty?.name}</span>
-                                                        </div>
-                                                        <span className="text-[10px] font-extrabold uppercase opacity-70">{app.status}</span>
+                                                    {app.specialty?.name && (
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 mt-1 block">{app.specialty.name}</span>
+                                                    )}
+                                                    <div className={`absolute bottom-0 left-0 right-0 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-center rounded-b-xl ${statusStyle(app.status).bg} ${statusStyle(app.status).text}`}>
+                                                        {statusStyle(app.status).label}
                                                     </div>
                                                 </div>
                                             );

@@ -9,7 +9,7 @@ class Specialty extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'color', 'duration_minutes'];
+    protected $fillable = ['name', 'color', 'duration_minutes', 'capacity'];
 
     public function professionals()
     {

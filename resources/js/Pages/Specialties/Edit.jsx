@@ -6,6 +6,52 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { useState } from 'react';
 
+function formatDuration(minutes) {
+    if (!minutes) return null;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m}min`;
+}
+
+function HoursMinutesInput({ value, onChange, className = '' }) {
+    const total = Number(value) || 0;
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+
+    const update = (h, m) => {
+        const total = Number(h || 0) * 60 + Number(m || 0);
+        onChange(total > 0 ? total : '');
+    };
+
+    const inputCls = `border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 bg-white dark:bg-stone-800 dark:border-stone-700 w-16 text-center ${className}`;
+
+    return (
+        <div className="flex items-center gap-1">
+            <input
+                type="number"
+                min="0"
+                value={hours || ''}
+                onChange={e => update(e.target.value, mins)}
+                placeholder="0"
+                className={inputCls}
+            />
+            <span className="text-xs text-stone-400 font-medium">h</span>
+            <input
+                type="number"
+                min="0"
+                max="59"
+                value={mins || ''}
+                onChange={e => update(hours, e.target.value)}
+                placeholder="0"
+                className={inputCls}
+            />
+            <span className="text-xs text-stone-400 font-medium">min</span>
+        </div>
+    );
+}
+
 const PRESET_COLORS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
     '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -17,6 +63,7 @@ function SubgroupRow({ sub, specialtyId, color }) {
     const [form, setForm] = useState({
         name: sub.name,
         duration_minutes: sub.duration_minutes || '',
+        capacity: sub.capacity || '',
     });
     const [saving, setSaving] = useState(false);
 
@@ -48,13 +95,19 @@ function SubgroupRow({ sub, specialtyId, color }) {
                     />
                 </td>
                 <td className="px-4 py-2">
+                    <HoursMinutesInput
+                        value={form.duration_minutes}
+                        onChange={val => setForm(f => ({ ...f, duration_minutes: val }))}
+                    />
+                </td>
+                <td className="px-4 py-2">
                     <input
                         type="number"
                         min="1"
-                        value={form.duration_minutes}
-                        onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))}
-                        className="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30"
-                        placeholder="min"
+                        value={form.capacity}
+                        onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
+                        placeholder="Ilimitado"
+                        className="border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 bg-white dark:bg-stone-800 w-24 text-center"
                     />
                 </td>
                 <td className="px-4 py-2 text-right">
@@ -80,7 +133,10 @@ function SubgroupRow({ sub, specialtyId, color }) {
                 </span>
             </td>
             <td className="px-4 py-3 text-sm text-stone-500">
-                {sub.duration_minutes ? `${sub.duration_minutes} min` : <span className="text-stone-300">—</span>}
+                {sub.duration_minutes ? formatDuration(sub.duration_minutes) : <span className="text-stone-300">—</span>}
+            </td>
+            <td className="px-4 py-3 text-sm text-stone-500">
+                {sub.capacity ? `${sub.capacity} vaga${sub.capacity > 1 ? 's' : ''}` : <span className="text-stone-300">—</span>}
             </td>
             <td className="px-4 py-3 text-right">
                 <div className="flex justify-end gap-1">
@@ -101,9 +157,10 @@ export default function Edit({ specialty }) {
         name: specialty.name,
         color: specialty.color || '#6366f1',
         duration_minutes: specialty.duration_minutes || '',
+        capacity: specialty.capacity || '',
     });
 
-    const [newSub, setNewSub] = useState({ name: '', duration_minutes: '' });
+    const [newSub, setNewSub] = useState({ name: '', duration_minutes: '', capacity: '' });
     const [adding, setAdding] = useState(false);
 
     const submit = (e) => {
@@ -117,7 +174,7 @@ export default function Edit({ specialty }) {
         setAdding(true);
         router.post(route('specialties.subgroups.store', specialty.id), newSub, {
             preserveScroll: true,
-            onSuccess: () => { setNewSub({ name: '', duration_minutes: '' }); setAdding(false); },
+            onSuccess: () => { setNewSub({ name: '', duration_minutes: '', capacity: '' }); setAdding(false); },
             onError: () => setAdding(false),
         });
     };
@@ -158,10 +215,24 @@ export default function Edit({ specialty }) {
                             <InputError message={errors.color} className="mt-2" />
                         </div>
                         <div>
-                            <InputLabel htmlFor="duration_minutes" value="Duração padrão (minutos)" />
-                            <TextInput id="duration_minutes" type="number" min="1" className="mt-1 block w-full" value={data.duration_minutes} onChange={(e) => setData('duration_minutes', e.target.value)} placeholder="Ex: 50" />
+                            <InputLabel htmlFor="duration_minutes" value="Duração padrão" />
+                            <div className="mt-1"><HoursMinutesInput value={data.duration_minutes} onChange={val => setData('duration_minutes', val)} /></div>
                             <p className="text-xs text-stone-400 mt-1">Será usada quando o subgrupo não tiver duração própria.</p>
                             <InputError message={errors.duration_minutes} className="mt-2" />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="capacity" value="Capacidade por horário" />
+                            <input
+                                id="capacity"
+                                type="number"
+                                min="1"
+                                value={data.capacity}
+                                onChange={e => setData('capacity', e.target.value)}
+                                placeholder="Ilimitado"
+                                className="mt-1 w-32 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 focus:border-[#466250] bg-white dark:bg-stone-800 dark:border-stone-700"
+                            />
+                            <p className="text-xs text-stone-400 mt-1">Máximo de pacientes simultâneos nesta especialidade. Deixe vazio para ilimitado.</p>
+                            <InputError message={errors.capacity} className="mt-2" />
                         </div>
                         <div className="flex items-center justify-end pt-6 border-t border-stone-100 dark:border-stone-800">
                             <PrimaryButton className="px-10 py-3" disabled={processing}>Salvar Alterações</PrimaryButton>
@@ -186,13 +257,14 @@ export default function Edit({ specialty }) {
                             <tr className="bg-stone-50 dark:bg-stone-800/50">
                                 <th className="px-4 py-2.5 text-xs font-bold text-stone-400 uppercase tracking-wider">Nome</th>
                                 <th className="px-4 py-2.5 text-xs font-bold text-stone-400 uppercase tracking-wider">Duração</th>
+                                <th className="px-4 py-2.5 text-xs font-bold text-stone-400 uppercase tracking-wider">Capacidade</th>
                                 <th className="px-4 py-2.5"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {(!specialty.subgroups || specialty.subgroups.length === 0) && (
                                 <tr>
-                                    <td colSpan="3" className="px-4 py-6 text-center text-sm text-stone-400 italic">
+                                    <td colSpan="4" className="px-4 py-6 text-center text-sm text-stone-400 italic">
                                         Nenhum subgrupo cadastrado.
                                     </td>
                                 </tr>
@@ -206,7 +278,17 @@ export default function Edit({ specialty }) {
                                     <input type="text" value={newSub.name} onChange={e => setNewSub(s => ({ ...s, name: e.target.value }))} placeholder="Nome do subgrupo..." className="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 focus:border-[#466250] bg-white dark:bg-stone-800 dark:border-stone-700" />
                                 </td>
                                 <td className="px-4 py-3">
-                                    <input type="number" min="1" value={newSub.duration_minutes} onChange={e => setNewSub(s => ({ ...s, duration_minutes: e.target.value }))} placeholder="min" className="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 bg-white dark:bg-stone-800 dark:border-stone-700" />
+                                    <HoursMinutesInput value={newSub.duration_minutes} onChange={val => setNewSub(s => ({ ...s, duration_minutes: val }))} />
+                                </td>
+                                <td className="px-4 py-3">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={newSub.capacity}
+                                        onChange={e => setNewSub(s => ({ ...s, capacity: e.target.value }))}
+                                        placeholder="Ilimitado"
+                                        className="border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 bg-white dark:bg-stone-800 w-24 text-center"
+                                    />
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                     <button onClick={addSubgroup} disabled={adding || !newSub.name.trim()} className="px-3 py-1.5 rounded-lg text-sm font-bold text-white flex items-center gap-1 ml-auto disabled:opacity-40" style={{ backgroundColor: specialty.color || '#466250' }}>

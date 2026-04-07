@@ -13,6 +13,7 @@ class SpecialtySubgroupController extends Controller
         $validated = $request->validate([
             'name'             => 'required|string|max:255',
             'duration_minutes' => 'nullable|integer|min:1',
+            'capacity'         => 'nullable|integer|min:1',
         ]);
 
         $specialty->subgroups()->create($validated);
@@ -25,6 +26,7 @@ class SpecialtySubgroupController extends Controller
         $validated = $request->validate([
             'name'             => 'required|string|max:255',
             'duration_minutes' => 'nullable|integer|min:1',
+            'capacity'         => 'nullable|integer|min:1',
         ]);
 
         $subgroup->update($validated);

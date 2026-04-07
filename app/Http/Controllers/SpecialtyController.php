@@ -31,6 +31,7 @@ class SpecialtyController extends Controller
             'name' => 'required|string|max:255|unique:specialties,name',
             'color' => 'required|string|max:7',
             'duration_minutes' => 'nullable|integer|min:1',
+            'capacity' => 'nullable|integer|min:1',
         ]);
 
         Specialty::create($validated);
@@ -51,6 +52,7 @@ class SpecialtyController extends Controller
             'name' => 'required|string|max:255|unique:specialties,name,' . $specialty->id,
             'color' => 'required|string|max:7',
             'duration_minutes' => 'nullable|integer|min:1',
+            'capacity' => 'nullable|integer|min:1',
         ]);
 
         $specialty->update($validated);

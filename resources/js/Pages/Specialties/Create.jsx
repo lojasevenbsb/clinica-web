@@ -5,6 +5,28 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 
+function HoursMinutesInput({ value, onChange }) {
+    const total = Number(value) || 0;
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+
+    const update = (h, m) => {
+        const total = Number(h || 0) * 60 + Number(m || 0);
+        onChange(total > 0 ? total : '');
+    };
+
+    const inputCls = 'border border-outline-variant/60 bg-surface-container-lowest rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-primary/20 focus:border-primary w-20 text-center';
+
+    return (
+        <div className="flex items-center gap-2 mt-1">
+            <input type="number" min="0" value={hours || ''} onChange={e => update(e.target.value, mins)} placeholder="0" className={inputCls} />
+            <span className="text-sm text-stone-400 font-medium">h</span>
+            <input type="number" min="0" max="59" value={mins || ''} onChange={e => update(hours, e.target.value)} placeholder="0" className={inputCls} />
+            <span className="text-sm text-stone-400 font-medium">min</span>
+        </div>
+    );
+}
+
 const PRESET_COLORS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
     '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -16,6 +38,7 @@ export default function Create() {
         name: '',
         color: '#6366f1',
         duration_minutes: '',
+        capacity: '',
     });
 
     const submit = (e) => {
@@ -85,17 +108,24 @@ export default function Create() {
                     </div>
 
                     <div>
-                        <InputLabel htmlFor="duration_minutes" value="Duração (minutos)" />
-                        <TextInput
-                            id="duration_minutes"
+                        <InputLabel htmlFor="duration_minutes" value="Duração" />
+                        <HoursMinutesInput value={data.duration_minutes} onChange={val => setData('duration_minutes', val)} />
+                        <InputError message={errors.duration_minutes} className="mt-2" />
+                    </div>
+
+                    <div>
+                        <InputLabel htmlFor="capacity" value="Capacidade por horário" />
+                        <input
+                            id="capacity"
                             type="number"
                             min="1"
-                            className="mt-1 block w-full"
-                            value={data.duration_minutes}
-                            onChange={(e) => setData('duration_minutes', e.target.value)}
-                            placeholder="Ex: 50"
+                            value={data.capacity}
+                            onChange={e => setData('capacity', e.target.value)}
+                            placeholder="Ilimitado"
+                            className="mt-1 w-32 border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#466250]/30 focus:border-[#466250] bg-white dark:bg-stone-800"
                         />
-                        <InputError message={errors.duration_minutes} className="mt-2" />
+                        <p className="text-xs text-stone-400 mt-1">Máximo de pacientes simultâneos. Deixe vazio para ilimitado.</p>
+                        <InputError message={errors.capacity} className="mt-2" />
                     </div>
 
                     <div className="flex items-center justify-end mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">

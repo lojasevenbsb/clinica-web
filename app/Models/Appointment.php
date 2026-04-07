@@ -13,11 +13,13 @@ class Appointment extends Model
         'professional_id',
         'patient_id',
         'specialty_id',
+        'specialty_subgroup_id',
         'patient_package_id',
         'start_time',
         'end_time',
         'status',
         'notes',
+        'repeat_group_id',
     ];
 
     protected $casts = [
@@ -38,6 +40,11 @@ class Appointment extends Model
     public function specialty()
     {
         return $this->belongsTo(Specialty::class);
+    }
+
+    public function specialtySubgroup()
+    {
+        return $this->belongsTo(SpecialtySubgroup::class);
     }
 
     public function patientPackage()

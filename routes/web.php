@@ -8,6 +8,7 @@ use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\PatientPackageController;
 use App\Http\Controllers\PaymentOptionController;
+use App\Http\Controllers\PilatesController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -27,6 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
+    Route::get('/pilates', [PilatesController::class, 'index'])->name('pilates.index');
     Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');
     Route::patch('/appointments/{appointment}', [AgendaController::class, 'update'])->name('appointments.update');
     Route::delete('/appointments/{appointment}', [AgendaController::class, 'destroy'])->name('appointments.destroy');
@@ -59,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/patients/{patient}/packages', [PatientPackageController::class, 'store'])->name('patients.packages.store');
     Route::get('/patients/{patient}/packages', [PatientPackageController::class, 'index'])->name('patients.packages.index');
+    Route::get('/patients/{patient}/appointments', [AgendaController::class, 'patientAppointments'])->name('patients.appointments');
     Route::put('/patient-packages/{patientPackage}', [PatientPackageController::class, 'update'])->name('patients.packages.update');
     Route::delete('/patient-packages/{patientPackage}', [PatientPackageController::class, 'destroy'])->name('patients.packages.destroy');
     Route::patch('/patient-package-installments/{installment}/toggle', [PatientPackageController::class, 'toggleInstallment'])->name('installments.toggle');

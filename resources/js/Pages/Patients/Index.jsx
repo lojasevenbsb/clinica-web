@@ -9,13 +9,16 @@ import PatientPlansModal from '@/Components/PatientPlansModal';
 import AnamneseModal from '@/Components/AnamneseModal';
 import ProntuarioModal from '@/Components/ProntuarioModal';
 import EvolucaoModal from '@/Components/EvolucaoModal';
+import PatientAppointmentsModal from '@/Components/PatientAppointmentsModal';
+import AppointmentModal from '@/Components/AppointmentModal';
 
-export default function Index({ patients, filters }) {
+export default function Index({ patients, filters, professionals, specialties, packages }) {
     const [search, setSearch] = useState(filters.search || '');
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [patientToDelete, setPatientToDelete] = useState(null);
     const [activePatient, setActivePatient] = useState(null);
-    const [modal, setModal] = useState(null); // 'plans' | 'assign' | 'anamnese' | 'prontuario' | 'evolucao' | null
+    const [modal, setModal] = useState(null); // 'plans' | 'assign' | 'anamnese' | 'prontuario' | 'evolucao' | 'appointments' | 'new_appointment' | null
+    const [appointmentPatientId, setAppointmentPatientId] = useState(null);
 
     const openPlans = (patient) => {
         setActivePatient(patient);
@@ -40,6 +43,11 @@ export default function Index({ patients, filters }) {
     const openEvolucao = (patient) => {
         setActivePatient(patient);
         setModal('evolucao');
+    };
+
+    const openAppointments = (patient) => {
+        setActivePatient(patient);
+        setModal('appointments');
     };
 
     const closeModal_ = () => {
@@ -172,6 +180,14 @@ export default function Index({ patients, filters }) {
                                                 </button>
                                                 <button
                                                     type="button"
+                                                    onClick={() => openAppointments(patient)}
+                                                    className="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                                                    title="Ver Agendamentos"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">calendar_month</span>
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={() => openPlans(patient)}
                                                     className="p-2 text-[#466250] hover:bg-[#466250]/10 rounded-lg transition-colors"
                                                     title="Ver Planos"
@@ -255,6 +271,30 @@ export default function Index({ patients, filters }) {
                 show={modal === 'evolucao'}
                 onClose={closeModal_}
                 patient={activePatient}
+            />
+
+            <PatientAppointmentsModal
+                show={modal === 'appointments'}
+                onClose={closeModal_}
+                patient={activePatient}
+                onSchedule={(patient) => {
+                    setAppointmentPatientId(patient?.id ?? null);
+                    setModal('new_appointment');
+                }}
+            />
+
+            <AppointmentModal
+                show={modal === 'new_appointment'}
+                onClose={closeModal_}
+                professionals={professionals}
+                patients={patients}
+                specialties={specialties}
+                packages={packages}
+                appointments={[]}
+                professionalHours={[]}
+                selectedDate={new Date().toISOString().slice(0, 10)}
+                selectedProfessionalId={null}
+                preselectedPatientId={appointmentPatientId}
             />
         </AuthenticatedLayout>
     );

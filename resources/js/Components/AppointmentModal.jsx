@@ -4,12 +4,12 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { addMinutes, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function AppointmentModal({ show, onClose, professionals, patients, specialties, packages, appointments = [], professionalHours, selectedDate, selectedProfessionalId, appointment = null }) {
+export default function AppointmentModal({ show, onClose, professionals, patients, specialties, packages, appointments = [], professionalHours, selectedDate, selectedProfessionalId, appointment = null, preselectedPatientId = null }) {
     const { data, setData, post, patch, processing, errors, reset, clearErrors } = useForm({
         professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
         patient_mode: 'registered',
@@ -20,6 +20,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
         walk_in_birth_date: '',
         walk_in_cpf: '',
         specialty_id: '',
+        specialty_subgroup_id: '',
         package_id: '',
         patient_package_id: '',
         date: selectedDate || '',
@@ -27,17 +28,24 @@ export default function AppointmentModal({ show, onClose, professionals, patient
         start_time: '',
         status: 'pendente',
         notes: '',
+        repeat_days: [],
+        repeat_weeks: 4,
     });
 
     const [availableHours, setAvailableHours] = useState([]);
     const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
+    const [repeatEnabled, setRepeatEnabled] = useState(false);
+    const [siblings, setSiblings] = useState([]);
+    const [deletingId, setDeletingId] = useState(null);
     const hasProfessionalAndDate = Boolean(data.professional_id) && Boolean(data.date);
     const selectedProfessional = professionals.find(p => String(p.id) === String(data.professional_id));
     const availableSpecialties = selectedProfessional?.specialties?.length
         ? specialties.filter(s => selectedProfessional.specialties.some(ps => ps.id === s.id))
         : specialties;
     const selectedSpecialty = specialties.find(s => String(s.id) === String(data.specialty_id));
-    const selectedDurationMinutes = Number(selectedSpecialty?.duration_minutes) || 30;
+    const isPilates = selectedSpecialty?.name?.toLowerCase().includes('pilates');
+    const selectedSubgroup = selectedSpecialty?.subgroups?.find(sg => String(sg.id) === String(data.specialty_subgroup_id));
+    const selectedDurationMinutes = Number(selectedSubgroup?.duration_minutes) || Number(selectedSpecialty?.duration_minutes) || 30;
     const SLOT_INTERVAL_MINUTES = 30;
 
     const parseTimeToMinutes = (value) => {
@@ -119,6 +127,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     walk_in_birth_date: '',
                     walk_in_cpf: '',
                     specialty_id: appointment.specialty_id,
+                    specialty_subgroup_id: appointment.specialty_subgroup_id || '',
                     package_id: appointment.patient_package?.package_id || '',
                     patient_package_id: appointment.patient_package_id || '',
                     date: format(startDateTime, 'yyyy-MM-dd'),
@@ -131,13 +140,14 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                 setData({
                     professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
                     patient_mode: 'registered',
-                    patient_id: '',
+                    patient_id: preselectedPatientId ? String(preselectedPatientId) : '',
                     walk_in_name: '',
                     walk_in_phone: '',
                     walk_in_email: '',
                     walk_in_birth_date: '',
                     walk_in_cpf: '',
                     specialty_id: '',
+                    specialty_subgroup_id: '',
                     package_id: '',
                     patient_package_id: '',
                     date: selectedDate || '',
@@ -145,9 +155,14 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     start_time: '',
                     status: 'pendente',
                     notes: '',
+                    repeat_days: [],
+                    repeat_weeks: 4,
                 });
             }
             clearErrors();
+            setRepeatEnabled(false);
+            setSiblings(appointment?.repeat_siblings ?? []);
+            setDeletingId(null);
         }
     }, [show, appointment, selectedDate, selectedProfessionalId]);
 
@@ -170,9 +185,20 @@ export default function AppointmentModal({ show, onClose, professionals, patient
         setData('walk_in_cpf', '');
     }, [data.patient_mode]);
 
+    useEffect(() => {
+        if (!repeatEnabled) {
+            setData(d => ({ ...d, repeat_days: [], repeat_weeks: 4 }));
+        }
+    }, [repeatEnabled]);
+
     const filteredPackages = data.specialty_id
         ? packages.filter(pkg => String(pkg.specialty_id) === String(data.specialty_id))
         : [];
+
+    const selectedPatient = patients.find(p => String(p.id) === String(data.patient_id));
+    const patientPlans = selectedPatient?.packages?.filter(pp =>
+        pp.package && String(pp.package.specialty_id) === String(data.specialty_id) && pp.status !== 'cancelled'
+    ) ?? [];
 
     const parseServerDateTime = (value) => {
         if (!value) return null;
@@ -209,17 +235,11 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
         if (appointment) {
             patch(route('appointments.update', appointment.id), {
-                onSuccess: () => {
-                    reset();
-                    onClose();
-                },
+                onSuccess: () => { reset(); onClose(); },
             });
         } else {
             post(route('appointments.store'), {
-                onSuccess: () => {
-                    reset();
-                    onClose();
-                },
+                onSuccess: () => { reset(); onClose(); },
             });
         }
     };
@@ -326,6 +346,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                         value={data.walk_in_phone}
                                         onChange={(e) => setData('walk_in_phone', e.target.value)}
                                         placeholder="(00) 00000-0000"
+                                        maxLength={15}
                                     />
                                     <InputError message={errors.walk_in_phone} className="mt-2" />
                                 </div>
@@ -337,6 +358,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                         value={data.walk_in_email}
                                         onChange={(e) => setData('walk_in_email', e.target.value)}
                                         placeholder="email@exemplo.com"
+                                        maxLength={100}
                                     />
                                     <InputError message={errors.walk_in_email} className="mt-2" />
                                 </div>
@@ -346,7 +368,8 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                         className="w-full mt-1"
                                         value={data.walk_in_cpf}
                                         onChange={(e) => setData('walk_in_cpf', e.target.value)}
-                                        placeholder="Somente números ou formato livre"
+                                        placeholder="000.000.000-00"
+                                        maxLength={14}
                                     />
                                     <InputError message={errors.walk_in_cpf} className="mt-2" />
                                 </div>
@@ -365,13 +388,11 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                         <div>
                             <InputLabel value="Especialidade" />
-                            <select 
+                            <select
                                 className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.specialty_id}
                                 onChange={(e) => {
-                                    setData('specialty_id', e.target.value);
-                                    setData('package_id', '');
-                                    setData('patient_package_id', '');
+                                    setData(d => ({ ...d, specialty_id: e.target.value, specialty_subgroup_id: '', package_id: '', patient_package_id: '' }));
                                 }}
                                 required
                             >
@@ -383,31 +404,84 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <InputError message={errors.specialty_id} className="mt-2" />
                         </div>
 
-                        {/* Plano da especialidade */}
-                        <div>
-                            <InputLabel value="Plano" />
-                            <select
-                                className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary disabled:opacity-50"
-                                value={data.package_id}
-                                onChange={(e) => {
-                                    setData('package_id', e.target.value);
-                                    setData('patient_package_id', '');
-                                }}
-                                disabled={!data.specialty_id || filteredPackages.length === 0}
-                            >
-                                <option value="">
-                                    {!data.specialty_id
-                                        ? 'Selecione a especialidade primeiro'
-                                        : filteredPackages.length === 0
-                                            ? 'Sem planos para esta especialidade'
-                                            : 'Nenhum plano (particular)'}
-                                </option>
-                                {filteredPackages.map(pkg => (
-                                    <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
-                                ))}
-                            </select>
-                            <InputError message={errors.package_id} className="mt-2" />
-                        </div>
+                        {selectedSpecialty?.subgroups?.length > 0 && (
+                            <div>
+                                <InputLabel value="Subgrupo" />
+                                <select
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.specialty_subgroup_id}
+                                    onChange={(e) => setData('specialty_subgroup_id', e.target.value)}
+                                    required
+                                >
+                                    <option value="">Selecionar Subgrupo</option>
+                                    {selectedSpecialty.subgroups.map(sg => (
+                                        <option key={sg.id} value={sg.id}>
+                                            {sg.name}{sg.duration_minutes ? ` (${Math.floor(sg.duration_minutes/60) > 0 ? Math.floor(sg.duration_minutes/60)+'h ' : ''}${sg.duration_minutes%60 > 0 ? sg.duration_minutes%60+'min' : ''})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.specialty_subgroup_id} className="mt-2" />
+                            </div>
+                        )}
+
+                        {siblings.length > 0 && (
+                            <div className="col-span-full rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>event_repeat</span>
+                                    <span className="text-sm font-bold text-stone-700 dark:text-stone-200">Agendamentos da recorrência</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {siblings.map(s => {
+                                        const d = new Date(s.start_time.replace(' ', 'T'));
+                                        const isCurrent = s.id === appointment.id;
+                                        const isDeleting = deletingId === s.id;
+                                        const statusBg = {
+                                            pendente:   'bg-yellow-50 border-yellow-200 text-yellow-700',
+                                            confirmado: 'bg-blue-50 border-blue-200 text-blue-700',
+                                            atendido:   'bg-green-50 border-green-200 text-green-700',
+                                            cancelado:  'bg-red-50 border-red-200 text-red-400 line-through opacity-60',
+                                        }[s.status] || 'bg-stone-100 border-stone-200 text-stone-500';
+
+                                        return (
+                                            <div
+                                                key={s.id}
+                                                className={`flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-xl text-xs font-bold border ${statusBg} ${isCurrent ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                                            >
+                                                <span>
+                                                    {d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                                                    {' '}
+                                                    {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                                {!isCurrent && s.status !== 'atendido' && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isDeleting}
+                                                        title="Remover este agendamento"
+                                                        onClick={() => {
+                                                            if (!confirm(`Remover agendamento de ${d.toLocaleDateString('pt-BR')}?`)) return;
+                                                            setDeletingId(s.id);
+                                                            router.delete(route('appointments.destroy', s.id), {
+                                                                preserveScroll: true,
+                                                                onSuccess: () => {
+                                                                    setSiblings(prev => prev.filter(x => x.id !== s.id));
+                                                                    setDeletingId(null);
+                                                                },
+                                                                onError: () => setDeletingId(null),
+                                                            });
+                                                        }}
+                                                        className="ml-0.5 rounded-lg p-0.5 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-40"
+                                                    >
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                                                            {isDeleting ? 'hourglass_empty' : 'close'}
+                                                        </span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {appointment && (
                             <div>
@@ -461,6 +535,124 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             </div>
                         </div>
                     </div>
+
+                    {data.specialty_id && !appointment && (
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-4">
+                            {/* Planos do paciente */}
+                            <div>
+                                <p className="text-xs font-semibold text-stone-500 mb-2 uppercase tracking-wide">Plano do paciente</p>
+                                <select
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.patient_package_id}
+                                    onChange={(e) => setData('patient_package_id', e.target.value)}
+                                    disabled={!data.patient_id || patientPlans.length === 0}
+                                >
+                                    <option value="">
+                                        {!data.patient_id
+                                            ? 'Selecione um paciente primeiro'
+                                            : patientPlans.length === 0
+                                                ? 'Nenhum plano para esta especialidade'
+                                                : 'Sem plano'}
+                                    </option>
+                                    {patientPlans.map(pp => (
+                                        <option key={pp.id} value={String(pp.id)}>
+                                            {pp.package.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.patient_package_id} className="mt-1" />
+                            </div>
+
+                            {isPilates && (<>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>event_repeat</span>
+                                    <span className="font-bold text-stone-700 dark:text-stone-200 text-sm">Repetição semanal</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const next = !repeatEnabled;
+                                        setRepeatEnabled(next);
+                                        if (next && data.date) {
+                                            const jsDay = new Date(data.date + 'T12:00:00').getDay();
+                                            const isoDay = jsDay === 0 ? 7 : jsDay;
+                                            setData('repeat_days', [isoDay]);
+                                        }
+                                    }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${repeatEnabled ? 'bg-primary' : 'bg-stone-300'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${repeatEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {repeatEnabled && (
+                                <>
+                                    <div>
+                                        <p className="text-xs font-semibold text-stone-500 mb-2 uppercase tracking-wide">Dias da semana</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { label: 'Seg', day: 1 },
+                                                { label: 'Ter', day: 2 },
+                                                { label: 'Qua', day: 3 },
+                                                { label: 'Qui', day: 4 },
+                                                { label: 'Sex', day: 5 },
+                                                { label: 'Sáb', day: 6 },
+                                            ].map(({ label, day }) => {
+                                                const active = data.repeat_days.includes(day);
+                                                return (
+                                                    <button
+                                                        key={day}
+                                                        type="button"
+                                                        onClick={() => setData('repeat_days',
+                                                            active ? data.repeat_days.filter(d => d !== day) : [...data.repeat_days, day].sort()
+                                                        )}
+                                                        className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${active ? 'bg-primary text-white shadow-sm' : 'bg-white text-stone-500 border border-stone-200 hover:border-primary/40'}`}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide whitespace-nowrap">Repetir por</p>
+                                        <div className="flex gap-2">
+                                            {[4, 8, 12].map(w => (
+                                                <button
+                                                    key={w}
+                                                    type="button"
+                                                    onClick={() => setData('repeat_weeks', w)}
+                                                    className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${data.repeat_weeks === w ? 'bg-primary text-white shadow-sm' : 'bg-white text-stone-500 border border-stone-200 hover:border-primary/40'}`}
+                                                >
+                                                    {w} sem.
+                                                </button>
+                                            ))}
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="52"
+                                                    value={data.repeat_weeks}
+                                                    onChange={e => setData('repeat_weeks', Number(e.target.value))}
+                                                    className="w-16 border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white dark:bg-stone-800"
+                                                />
+                                                <span className="text-xs text-stone-400">sem.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {data.repeat_days.length > 0 && (
+                                        <p className="text-xs text-primary/70 font-medium">
+                                            {data.repeat_days.length * data.repeat_weeks} agendamentos serão criados
+                                        </p>
+                                    )}
+                                </>
+                            )}
+                            </>)}
+                        </div>
+                    )}
 
                     <div>
                         <InputLabel value="Observações" />

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SpecialtySubgroup extends Model
 {
-    protected $fillable = ['specialty_id', 'name', 'duration_minutes'];
+    protected $fillable = ['specialty_id', 'name', 'duration_minutes', 'capacity'];
 
     public function specialty()
     {

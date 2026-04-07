@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Patient;
+use App\Models\Professional;
+use App\Models\Package;
+use App\Models\Specialty;
 use Inertia\Inertia;
 
 class PatientController extends Controller
@@ -18,8 +21,11 @@ class PatientController extends Controller
         }
 
         return Inertia::render('Patients/Index', [
-            'patients' => $query->latest()->get(),
-            'filters' => $request->only(['search'])
+            'patients'      => $query->with(['packages.package'])->latest()->get(),
+            'filters'       => $request->only(['search']),
+            'professionals' => Professional::with(['hours', 'specialties'])->get(),
+            'specialties'   => Specialty::with('subgroups')->orderBy('name')->get(),
+            'packages'      => Package::orderBy('name')->get(['id', 'name', 'specialty_id', 'price', 'session_count']),
         ]);
     }
 

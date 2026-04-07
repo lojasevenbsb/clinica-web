@@ -6,6 +6,15 @@ import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import PackageManagementModal from '@/Components/PackageManagementModal';
 
+function formatDuration(minutes) {
+    if (!minutes) return null;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m}min`;
+}
+
 export default function Index({ specialties }) {
     const [confirmingDeletion, setConfirmingDeletion] = useState(false);
     const [specialtyToDelete, setSpecialtyToDelete] = useState(null);
@@ -92,7 +101,7 @@ export default function Index({ specialties }) {
                                             {specialty.subgroups?.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mt-1.5">
                                                     {specialty.subgroups.map(sub => (
-                                                        <span key={sub.id} className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: (specialty.color || '#6366f1') + '18', color: specialty.color || '#6366f1' }} title={sub.duration_minutes ? `${sub.duration_minutes} min` : undefined}>
+                                                        <span key={sub.id} className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: (specialty.color || '#6366f1') + '18', color: specialty.color || '#6366f1' }} title={sub.duration_minutes ? formatDuration(sub.duration_minutes) : undefined}>
                                                             {sub.name}
                                                         </span>
                                                     ))}
@@ -101,7 +110,7 @@ export default function Index({ specialties }) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-sm text-stone-500">
-                                                {specialty.duration_minutes ? `${specialty.duration_minutes} min` : '—'}
+                                                {formatDuration(specialty.duration_minutes) || '—'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">

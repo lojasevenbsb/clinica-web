@@ -125,7 +125,11 @@ export default function Packages({ packages: initialPackages, specialties }) {
                             <p className="px-6 py-10 text-center text-stone-400 text-sm">Nenhum plano cadastrado.</p>
                         )}
 
-                        {packages.map(pkg => editingId === pkg.id ? (
+                        {[...packages].sort((a, b) => {
+                            const na = specialtyName(a.specialty_id) || '';
+                            const nb = specialtyName(b.specialty_id) || '';
+                            return na.localeCompare(nb, 'pt-BR');
+                        }).map(pkg => editingId === pkg.id ? (
                             <form
                                 key={pkg.id}
                                 onSubmit={(e) => handleUpdate(e, pkg.id)}

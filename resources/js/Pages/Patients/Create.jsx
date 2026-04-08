@@ -22,15 +22,15 @@ export default function Create() {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Novo Paciente" />
+            <Head title="Novo Cadastro" />
 
             <section className="mb-8">
                 <Link href={route('patients.index')} className="text-sm text-stone-500 hover:text-primary flex items-center gap-1 mb-4">
                     <span className="material-symbols-outlined text-sm">arrow_back</span>
                     Voltar para lista
                 </Link>
-                <h1 className="text-3xl font-extrabold tracking-tight text-[#466250]">Novo Paciente</h1>
-                <p className="text-stone-500">Cadastre um novo paciente para a clínica.</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#466250]">Novo Cadastro</h1>
+                <p className="text-stone-500">Cadastre uma nova pessoa na clínica (paciente ou aluno de Pilates).</p>
             </section>
 
             <div className="max-w-4xl bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800">
@@ -118,7 +118,7 @@ export default function Create() {
 
                     <div className="flex items-center justify-end mt-8 pt-6 border-t border-stone-100 dark:border-stone-800">
                         <PrimaryButton className="px-10 py-3" disabled={processing}>
-                            Salvar Paciente
+                            Salvar Cadastro
                         </PrimaryButton>
                     </div>
                 </form>

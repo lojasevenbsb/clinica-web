@@ -90,12 +90,12 @@ export default function Index({ patients, filters, professionals, specialties, p
 
     return (
         <AuthenticatedLayout>
-            <Head title="Pacientes" />
+            <Head title="Cadastros" />
 
             <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#466250] mb-2">Pacientes</h1>
-                    <p className="text-stone-500">Gerencie o cadastro de seus pacientes.</p>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-[#466250] mb-2">Cadastros</h1>
+                    <p className="text-stone-500">Gerencie o cadastro de pacientes e alunos da clínica.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="relative">
@@ -108,12 +108,12 @@ export default function Index({ patients, filters, professionals, specialties, p
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                    <Link 
+                    <Link
                         href={route('patients.create')}
                         className="bg-[#466250] text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-[#384f40] transition-all shadow-lg shadow-primary/10"
                     >
                         <span className="material-symbols-outlined text-xl">person_add</span>
-                        Novo Paciente
+                        Novo Cadastro
                     </Link>
                 </div>
             </section>
@@ -123,7 +123,7 @@ export default function Index({ patients, filters, professionals, specialties, p
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-100 dark:border-stone-800">
-                                <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Paciente</th>
+                                <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Nome</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">CPF</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Contato</th>
                                 <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Nascimento</th>
@@ -136,7 +136,7 @@ export default function Index({ patients, filters, professionals, specialties, p
                                     <td colSpan="5" className="px-6 py-12 text-center text-stone-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <span className="material-symbols-outlined text-4xl text-stone-300">person_off</span>
-                                            <span>Nenhum paciente encontrado.</span>
+                                            <span>Nenhum cadastro encontrado.</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -222,7 +222,7 @@ export default function Index({ patients, filters, professionals, specialties, p
                     </div>
                     
                     <p className="text-stone-600 mb-8 leading-relaxed">
-                        Tem certeza que deseja excluir o(a) paciente <span className="font-bold text-stone-900 font-manrope">{patientToDelete?.name}</span>? Esta ação é permanente e não poderá ser desfeita.
+                        Tem certeza que deseja excluir o cadastro de <span className="font-bold text-stone-900 font-manrope">{patientToDelete?.name}</span>? Esta ação é permanente e não poderá ser desfeita.
                     </p>
 
                     <div className="flex justify-end gap-3">

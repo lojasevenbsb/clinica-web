@@ -9,6 +9,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\PatientPackageController;
 use App\Http\Controllers\PaymentOptionController;
 use App\Http\Controllers\PilatesController;
+use App\Http\Controllers\PilatesEnrollmentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -29,6 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
     Route::get('/pilates', [PilatesController::class, 'index'])->name('pilates.index');
+    Route::get('/pilates/matriculas', [PilatesEnrollmentController::class, 'index'])->name('pilates.matriculas.index');
+    Route::post('/pilates/matriculas', [PilatesEnrollmentController::class, 'store'])->name('pilates.matriculas.store');
+    Route::put('/pilates/matriculas/{enrollment}', [PilatesEnrollmentController::class, 'update'])->name('pilates.matriculas.update');
+    Route::delete('/pilates/matriculas/{enrollment}', [PilatesEnrollmentController::class, 'destroy'])->name('pilates.matriculas.destroy');
+    Route::patch('/pilates/matriculas/installments/{installment}/toggle', [PilatesEnrollmentController::class, 'toggleInstallment'])->name('pilates.matriculas.installments.toggle');
     Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');
     Route::patch('/appointments/{appointment}', [AgendaController::class, 'update'])->name('appointments.update');
     Route::delete('/appointments/{appointment}', [AgendaController::class, 'destroy'])->name('appointments.destroy');

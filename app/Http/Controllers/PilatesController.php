@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\Package;
+use App\Models\Patient;
 use App\Models\PatientPackage;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
@@ -103,10 +105,19 @@ class PilatesController extends Controller
                 : 0,
         ];
 
+        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'price', 'session_count', 'specialty_id']);
+
+        $patients = Patient::orderBy('name')
+            ->get(['id', 'name', 'phone', 'email', 'cpf']);
+
         return Inertia::render('Pilates/Index', [
-            'students' => $students,
-            'summary'  => $summary,
-            'filters'  => $request->only(['search', 'status']),
+            'students'        => $students,
+            'summary'         => $summary,
+            'filters'         => $request->only(['search', 'status']),
+            'pilatesPackages' => $pilatesPackages,
+            'patients'        => $patients,
         ]);
     }
 }

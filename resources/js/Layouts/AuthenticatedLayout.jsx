@@ -47,19 +47,26 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="material-symbols-outlined">category</span>
                             <span className="font-manrope body-md">Especialidades</span>
                         </Link>
-                        <Link 
-                            href={route('patients.index')} 
+                        <Link
+                            href={route('patients.index')}
                             className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('patients.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
                         >
                             <span className="material-symbols-outlined">groups</span>
-                            <span className="font-manrope body-md">Pacientes</span>
+                            <span className="font-manrope body-md">Cadastros</span>
                         </Link>
                         <Link
                             href={route('pilates.index')}
-                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.index') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
-                            <span className="material-symbols-outlined" style={route().current('pilates.*') ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
+                            <span className="material-symbols-outlined" style={route().current('pilates.index') ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
                             <span className="font-manrope body-md">Controle de Pilates</span>
+                        </Link>
+                        <Link
+                            href={route('pilates.matriculas.index')}
+                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.matriculas.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                        >
+                            <span className="material-symbols-outlined" style={route().current('pilates.matriculas.*') ? { fontVariationSettings: "'FILL' 1" } : {}}>assignment</span>
+                            <span className="font-manrope body-md">Matrículas Pilates</span>
                         </Link>
                         <a href="#" className="flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg">
                             <span className="material-symbols-outlined">payments</span>
@@ -143,10 +150,10 @@ export default function AuthenticatedLayout({ header, children }) {
                     <span className="material-symbols-outlined" style={isAgenda ? { fontVariationSettings: "'FILL' 1" } : {}}>calendar_month</span>
                     <span className="font-manrope text-[11px] font-medium">Agenda</span>
                 </Link>
-                <a href="#" className="flex flex-col items-center justify-center text-stone-400 active:opacity-80 transition-all duration-300 ease-in-out">
-                    <span className="material-symbols-outlined">person</span>
-                    <span className="font-manrope text-[11px] font-medium">Pacientes</span>
-                </a>
+                <Link href={route('patients.index')} className="flex flex-col items-center justify-center text-stone-400 active:opacity-80 transition-all duration-300 ease-in-out">
+                    <span className="material-symbols-outlined">groups</span>
+                    <span className="font-manrope text-[11px] font-medium">Cadastros</span>
+                </Link>
                 <a href="#" className="flex flex-col items-center justify-center text-stone-400 active:opacity-80 transition-all duration-300 ease-in-out">
                     <span className="material-symbols-outlined">more_horiz</span>
                     <span className="font-manrope text-[11px] font-medium">Mais</span>

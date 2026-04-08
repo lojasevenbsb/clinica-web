@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import PilatesEnrollmentModal from '@/Components/PilatesEnrollmentModal';
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 const fmt = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
@@ -244,9 +245,10 @@ function StudentRow({ student }) {
 }
 
 /* ─── página principal ───────────────────────────────────────────────── */
-export default function PilatesIndex({ students, summary, filters }) {
+export default function PilatesIndex({ students, summary, filters, pilatesPackages = [], patients = [] }) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [enrollmentModal, setEnrollmentModal] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -268,6 +270,13 @@ export default function PilatesIndex({ students, summary, filters }) {
                     <h1 className="text-3xl font-extrabold tracking-tight text-[#466250] mb-1">Controle de Pilates</h1>
                     <p className="text-stone-500">Acompanhe planos, mensalidades e presença dos alunos.</p>
                 </div>
+                <button
+                    onClick={() => setEnrollmentModal(true)}
+                    className="bg-[#466250] text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-[#384f40] transition-all shadow-lg shadow-[#466250]/20 self-start md:self-auto"
+                >
+                    <span className="material-symbols-outlined text-xl">person_add</span>
+                    Nova Matrícula
+                </button>
             </section>
 
             {/* Cards de resumo */}
@@ -343,6 +352,15 @@ export default function PilatesIndex({ students, summary, filters }) {
                     </table>
                 </div>
             </div>
+            <PilatesEnrollmentModal
+                show={enrollmentModal}
+                onClose={() => {
+                    setEnrollmentModal(false);
+                    router.reload({ only: ['students', 'summary'] });
+                }}
+                pilatesPackages={pilatesPackages}
+                patients={patients}
+            />
         </AuthenticatedLayout>
     );
 }

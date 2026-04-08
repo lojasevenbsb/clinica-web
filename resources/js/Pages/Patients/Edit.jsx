@@ -29,8 +29,8 @@ export default function Edit({ patient }) {
                     <span className="material-symbols-outlined text-sm">arrow_back</span>
                     Voltar para lista
                 </Link>
-                <h1 className="text-3xl font-extrabold tracking-tight text-[#466250]">Editar Paciente</h1>
-                <p className="text-stone-500">Atualize as informações do paciente {patient.name}.</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#466250]">Editar Cadastro</h1>
+                <p className="text-stone-500">Atualize as informações de {patient.name}.</p>
             </section>
 
             <div className="max-w-4xl bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800">

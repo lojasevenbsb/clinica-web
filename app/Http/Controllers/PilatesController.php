@@ -46,6 +46,15 @@ class PilatesController extends Controller
                     'professional' => $a->professional?->name,
                 ]);
 
+            // Professional: most frequent in this patient's appointments
+            $professionalName = collect($appointments)
+                ->pluck('professional')
+                ->filter()
+                ->countBy()
+                ->sortDesc()
+                ->keys()
+                ->first();
+
             $installments = $pp->installments->map(fn($i) => [
                 'id'       => $i->id,
                 'numero'   => $i->numero,
@@ -62,6 +71,7 @@ class PilatesController extends Controller
                 'status'         => $pp->status,
                 'start_date'     => $pp->start_date,
                 'end_date'       => $pp->end_date,
+                'professional'   => $professionalName,
                 'price'          => $pp->price,
                 'session_count'  => $pp->session_count,
                 'patient'        => [

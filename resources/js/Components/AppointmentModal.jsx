@@ -199,6 +199,15 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     const patientPlans = selectedPatient?.packages?.filter(pp =>
         pp.package && String(pp.package.specialty_id) === String(data.specialty_id) && pp.status !== 'cancelled'
     ) ?? [];
+    const selectedPatientPlan = patientPlans.find(pp => String(pp.id) === String(data.patient_package_id));
+
+    const formatContractDate = (value) => {
+        if (!value) return '';
+        const raw = String(value).substring(0, 10);
+        const parsed = parseISO(raw);
+        if (Number.isNaN(parsed.getTime())) return raw;
+        return format(parsed, 'dd/MM/yyyy');
+    };
 
     const parseServerDateTime = (value) => {
         if (!value) return null;
@@ -538,9 +547,9 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                     {data.specialty_id && !appointment && (
                         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-4">
-                            {/* Planos do paciente */}
+                            {/* Contrato do paciente */}
                             <div>
-                                <p className="text-xs font-semibold text-stone-500 mb-2 uppercase tracking-wide">Plano do paciente</p>
+                                <p className="text-xs font-semibold text-stone-500 mb-2 uppercase tracking-wide">Contrato</p>
                                 <select
                                     className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                     value={data.patient_package_id}
@@ -556,11 +565,34 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                                     </option>
                                     {patientPlans.map(pp => (
                                         <option key={pp.id} value={String(pp.id)}>
-                                            {pp.package.name}
+                                            {`${pp.package.name} | Início: ${formatContractDate(pp.start_date)} | Término: ${pp.end_date ? formatContractDate(pp.end_date) : 'Sem término'}`}
                                         </option>
                                     ))}
                                 </select>
                                 <InputError message={errors.patient_package_id} className="mt-1" />
+
+                                {selectedPatientPlan && (
+                                    <div className="grid grid-cols-2 gap-3 mt-3">
+                                        <div>
+                                            <InputLabel value="Data de Início" />
+                                            <TextInput
+                                                type="date"
+                                                className="w-full mt-1"
+                                                value={selectedPatientPlan.start_date ? String(selectedPatientPlan.start_date).substring(0, 10) : ''}
+                                                readOnly
+                                            />
+                                        </div>
+                                        <div>
+                                            <InputLabel value="Data de Término" />
+                                            <TextInput
+                                                type="date"
+                                                className="w-full mt-1"
+                                                value={selectedPatientPlan.end_date ? String(selectedPatientPlan.end_date).substring(0, 10) : ''}
+                                                readOnly
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {isPilates && (<>

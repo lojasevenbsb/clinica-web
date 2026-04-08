@@ -126,7 +126,7 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
         return () => clearInterval(id);
     }, []);
 
-    const workingProfs = allProfessionalsHours.filter(p => p.day_hours?.is_open);
+    const workingProfs = allProfessionalsHours;
 
     if (workingProfs.length === 0) {
         return (
@@ -140,8 +140,9 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
         );
     }
 
-    const startHour = Math.min(...workingProfs.map(p => parseInt(p.day_hours.open_time.split(':')[0])));
-    const endHour   = Math.max(...workingProfs.map(p => parseInt(p.day_hours.close_time.split(':')[0])));
+    const openProfs = workingProfs.filter(p => p.day_hours?.is_open);
+    const startHour = openProfs.length > 0 ? Math.min(...openProfs.map(p => parseInt(p.day_hours.open_time.split(':')[0]))) : 8;
+    const endHour   = openProfs.length > 0 ? Math.max(...openProfs.map(p => parseInt(p.day_hours.close_time.split(':')[0]))) : 18;
 
     // Generate slots based on slotInterval (in minutes)
     const slots = [];
@@ -189,7 +190,10 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                         </div>
                         <span className="text-xs font-bold text-on-surface text-center truncate w-full text-center">{prof.nickname || prof.name}</span>
                         <span className="text-sm text-outline">
-                            {prof.day_hours.open_time.substring(0, 5)}–{prof.day_hours.close_time.substring(0, 5)}
+                            {prof.day_hours?.is_open
+                                ? `${prof.day_hours.open_time.substring(0, 5)}–${prof.day_hours.close_time.substring(0, 5)}`
+                                : <span className="text-xs text-red-400 font-semibold">Não atende</span>
+                            }
                         </span>
                     </div>
                 ))}
@@ -245,10 +249,10 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
 
                         {/* Professional columns */}
                         {workingProfs.map(prof => {
-                            const profStartH = parseInt(prof.day_hours.open_time.split(':')[0]);
-                            const profEndH   = parseInt(prof.day_hours.close_time.split(':')[0]);
+                            const profStartH = prof.day_hours?.is_open ? parseInt(prof.day_hours.open_time.split(':')[0]) : null;
+                            const profEndH   = prof.day_hours?.is_open ? parseInt(prof.day_hours.close_time.split(':')[0]) : null;
                             const slotAbsMin = h * 60 + m;
-                            const isWorking  = slotAbsMin >= profStartH * 60 && slotAbsMin < profEndH * 60;
+                            const isWorking  = profStartH !== null && slotAbsMin >= profStartH * 60 && slotAbsMin < profEndH * 60;
                             const apps       = appsByProfSlot[`${prof.id}-${h}-${m}`] || [];
 
                             // Skip cell if covered by an ongoing appointment for this prof

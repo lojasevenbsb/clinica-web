@@ -75,10 +75,19 @@ function StudentRow({ student }) {
                     <div className="text-sm font-semibold text-stone-700">{student.package.name}</div>
                     {student.price && <div className="text-xs text-stone-400">{money(student.price)}</div>}
                 </td>
+                {/* Profissional */}
+                <td className="px-5 py-4">
+                    {student.professional
+                        ? <div className="text-sm text-stone-700 font-medium">{student.professional}</div>
+                        : <span className="text-xs text-stone-300">—</span>
+                    }
+                </td>
                 {/* Período */}
                 <td className="px-5 py-4">
+                    <div className="text-xs text-stone-400 mb-0.5">Início</div>
                     <div className="text-sm text-stone-600">{fmt(student.start_date)}</div>
-                    <div className="text-xs text-stone-400">{student.end_date ? `até ${fmt(student.end_date)}` : 'Sem término'}</div>
+                    <div className="text-xs text-stone-400 mt-1">Término</div>
+                    <div className="text-sm text-stone-600">{student.end_date ? fmt(student.end_date) : <span className="text-stone-300">Sem término</span>}</div>
                 </td>
                 {/* Mensalidades */}
                 <td className="px-5 py-4">

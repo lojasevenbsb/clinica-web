@@ -21,9 +21,23 @@ const STATUS = {
 };
 
 /* ─── Modal Nova Matrícula ─────────────────────────────────────────────── */
+const DAYS = [
+    { label: 'Dom', value: 0 },
+    { label: 'Seg', value: 1 },
+    { label: 'Ter', value: 2 },
+    { label: 'Qua', value: 3 },
+    { label: 'Qui', value: 4 },
+    { label: 'Sex', value: 5 },
+    { label: 'Sáb', value: 6 },
+];
+
 function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOptions, nextNumber, onSaved, preselectedPatient }) {
-    const [step, setStep]                   = useState('select'); // 'select' | 'form'
+    const [step, setStep]                   = useState('select'); // 'select' | 'form' | 'schedule'
     const [search, setSearch]               = useState('');
+    const [savedEnrollment, setSavedEnrollment] = useState(null);
+    const [scheduleSlots, setScheduleSlots] = useState({}); // { dayOfWeek: { enabled, time, duration } }
+    const [scheduleProcessing, setScheduleProcessing] = useState(false);
+    const [scheduleError, setScheduleError] = useState('');
     const [selectedPatient, setSelectedPatient] = useState(null);
 
     useEffect(() => {
@@ -56,6 +70,7 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
         setInstStartDate(''); setInstEndDate(''); setErrors({});
         setMensalidade(false); setParcelas([]); setMelhorData(null);
         setSelectedPatient(null); setSearch(''); setStep('select');
+        setSavedEnrollment(null); setScheduleSlots({}); setScheduleProcessing(false); setScheduleError('');
     };
 
     const handleClose = () => { reset(); onClose(); };
@@ -106,10 +121,48 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                     : [],
             });
             onSaved(res.data);
-            reset(); onClose();
+            setSavedEnrollment(res.data);
+            setStep('schedule');
         } catch (err) {
             if (err.response?.data?.errors) setErrors(err.response.data.errors);
         } finally { setProcessing(false); }
+    };
+
+    const toggleScheduleDay = (day) => {
+        setScheduleSlots(prev => {
+            if (prev[day]) {
+                const next = { ...prev };
+                delete next[day];
+                return next;
+            }
+            return { ...prev, [day]: { time: '08:00', duration: 60 } };
+        });
+    };
+
+    const submitSchedule = async () => {
+        const slots = Object.entries(scheduleSlots).map(([day, s]) => ({
+            day_of_week: parseInt(day),
+            start_time: s.time,
+            duration: s.duration,
+        }));
+        if (slots.length === 0) { reset(); onClose(); return; }
+        if (!savedEnrollment?.id) {
+            setScheduleError('Nao foi possivel identificar a matricula criada para gerar os agendamentos.');
+            return;
+        }
+        setScheduleError('');
+        setScheduleProcessing(true);
+        try {
+            await axios.post(route('pilates.matriculas.schedule', savedEnrollment.id), { slots });
+        } catch (err) {
+            const apiMessage = err.response?.data?.message;
+            const firstError = err.response?.data?.errors
+                ? Object.values(err.response.data.errors).flat()[0]
+                : null;
+            setScheduleError(apiMessage || firstError || 'Nao foi possivel gerar os agendamentos.');
+            return;
+        } finally { setScheduleProcessing(false); }
+        reset(); onClose();
     };
 
     return (
@@ -122,6 +175,8 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                         <p className="text-stone-500 text-sm">
                             {step === 'select'
                                 ? 'Selecione o aluno no cadastro'
+                                : step === 'schedule'
+                                ? <><span className="font-bold text-stone-800">{selectedPatient?.name}</span> · <span className="text-xs text-stone-400">Defina os horários de treino</span></>
                                 : <><span className="font-bold text-stone-800">{selectedPatient?.name}</span> · <span className="font-mono text-[#466250] text-xs">{nextNumber}</span></>
                             }
                         </p>
@@ -329,6 +384,97 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                             <PrimaryButton disabled={processing}>{processing ? 'Salvando...' : 'Confirmar Matrícula'}</PrimaryButton>
                         </div>
                     </form>
+                )}
+
+                {/* Step 3 — Horários de Treino */}
+                {step === 'schedule' && (
+                    <div className="space-y-5">
+                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+                            <span className="material-symbols-outlined text-emerald-600 text-xl mt-0.5">check_circle</span>
+                            <div>
+                                <p className="text-sm font-bold text-emerald-800">Matrícula criada com sucesso!</p>
+                                <p className="text-xs text-emerald-600 mt-0.5">Agora selecione os dias e horários que <strong>{selectedPatient?.name}</strong> vai treinar.</p>
+                            </div>
+                        </div>
+
+                        {scheduleError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                                {scheduleError}
+                            </div>
+                        )}
+
+                        {savedEnrollment?.package?.name && (
+                            <div className="flex items-center gap-2 text-sm text-stone-500">
+                                <span className="material-symbols-outlined text-base text-[#466250]">fitness_center</span>
+                                <span>Plano: <strong className="text-stone-700">{savedEnrollment.package.name}</strong></span>
+                                {savedEnrollment.sessions_per_month && (
+                                    <span className="ml-2 text-xs bg-[#466250]/10 text-[#466250] px-2 py-0.5 rounded-full font-semibold">
+                                        {savedEnrollment.sessions_per_month}×/mês
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        <div>
+                            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Dias da semana</p>
+                            <div className="grid grid-cols-7 gap-1.5">
+                                {DAYS.map(d => {
+                                    const active = !!scheduleSlots[d.value];
+                                    return (
+                                        <button key={d.value} type="button"
+                                            onClick={() => toggleScheduleDay(d.value)}
+                                            className={`py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${active ? 'bg-[#466250] text-white border-[#466250]' : 'bg-white text-stone-500 border-stone-200 hover:border-[#466250]/40'}`}>
+                                            {d.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {Object.keys(scheduleSlots).length > 0 && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Horários</p>
+                                {DAYS.filter(d => scheduleSlots[d.value]).map(d => (
+                                    <div key={d.value} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
+                                        <span className="w-10 text-center text-sm font-bold text-[#466250]">{d.label}</span>
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <label className="text-xs text-stone-500 shrink-0">Início</label>
+                                            <input type="time" value={scheduleSlots[d.value].time}
+                                                onChange={e => setScheduleSlots(prev => ({ ...prev, [d.value]: { ...prev[d.value], time: e.target.value } }))}
+                                                className="border border-stone-200 rounded-lg px-2 py-1 text-sm focus:ring-[#466250] focus:border-[#466250] outline-none" />
+                                            <label className="text-xs text-stone-500 shrink-0 ml-2">Duração</label>
+                                            <select value={scheduleSlots[d.value].duration}
+                                                onChange={e => setScheduleSlots(prev => ({ ...prev, [d.value]: { ...prev[d.value], duration: parseInt(e.target.value) } }))}
+                                                className="border border-stone-200 rounded-lg px-2 py-1 text-sm focus:ring-[#466250] focus:border-[#466250] outline-none">
+                                                <option value={30}>30 min</option>
+                                                <option value={45}>45 min</option>
+                                                <option value={60}>1 hora</option>
+                                                <option value={90}>1h30</option>
+                                                <option value={120}>2 horas</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                                {savedEnrollment?.start_date && savedEnrollment?.end_date && (
+                                    <p className="text-xs text-stone-400 pt-1">
+                                        Serão gerados agendamentos de <strong>{new Date(savedEnrollment.start_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong> até <strong>{new Date(savedEnrollment.end_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong> para os dias selecionados.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex justify-between gap-3 pt-2">
+                            <SecondaryButton type="button" onClick={() => { reset(); onClose(); }}>
+                                Pular agendamento
+                            </SecondaryButton>
+                            <PrimaryButton
+                                type="button"
+                                disabled={scheduleProcessing || Object.keys(scheduleSlots).length === 0}
+                                onClick={submitSchedule}>
+                                {scheduleProcessing ? 'Agendando...' : `Agendar ${Object.keys(scheduleSlots).length > 0 ? `(${Object.keys(scheduleSlots).length} dia${Object.keys(scheduleSlots).length > 1 ? 's' : ''})` : ''}`}
+                            </PrimaryButton>
+                        </div>
+                    </div>
                 )}
             </div>
             </div>

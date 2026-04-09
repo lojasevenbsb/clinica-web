@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Models\Package;
 use App\Models\Patient;
 use App\Models\PaymentOption;
 use App\Models\PilatesEnrollment;
 use App\Models\PilatesEnrollmentInstallment;
+use App\Models\Professional;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -138,6 +140,73 @@ class PilatesEnrollmentController extends Controller
     {
         $enrollment->delete();
         return response()->json(['ok' => true]);
+    }
+
+    public function schedule(Request $request, PilatesEnrollment $enrollment)
+    {
+        $validated = $request->validate([
+            'slots'                => 'required|array|min:1',
+            'slots.*.day_of_week' => 'required|integer|between:0,6', // 0=Dom,1=Seg...6=Sáb (Carbon ISO: 1=Mon..7=Sun)
+            'slots.*.start_time'  => 'required|string|regex:/^\d{2}:\d{2}$/',
+            'slots.*.duration'    => 'nullable|integer|min:15|max:240',
+        ]);
+
+        $enrollment->loadMissing('package');
+        $specialtyId = $enrollment->package?->specialty_id
+            ?? Specialty::whereRaw('LOWER(name) LIKE ?', ['%pilates%'])->value('id');
+
+        if (!$specialtyId) {
+            return response()->json([
+                'message' => 'Nao foi possivel identificar a especialidade de Pilates para gerar os agendamentos.',
+            ], 422);
+        }
+
+        $professionalId = Professional::whereHas('specialties', function ($q) use ($specialtyId) {
+            $q->where('specialties.id', $specialtyId);
+        })->orderBy('id')->value('id');
+
+        if (!$professionalId) {
+            return response()->json([
+                'message' => 'Nao existe profissional vinculado a especialidade selecionada.',
+            ], 422);
+        }
+
+        $startDate = $enrollment->start_date ?? Carbon::today();
+        $endDate   = $enrollment->end_date   ?? $startDate->copy()->addMonth();
+
+        // Map JS day (0=Dom,1=Seg..6=Sáb) to Carbon dayOfWeek (0=Dom,1=Seg..6=Sáb)
+        $created = 0;
+        foreach ($validated['slots'] as $slot) {
+            $dayOfWeek = (int) $slot['day_of_week'];
+            $duration  = (int) ($slot['duration'] ?? 60);
+
+            // Find first occurrence on or after start_date
+            $current = $startDate->copy();
+            while ($current->dayOfWeek !== $dayOfWeek) {
+                $current->addDay();
+            }
+
+            while ($current->lte($endDate)) {
+                [$h, $m] = explode(':', $slot['start_time']);
+                $startDt = $current->copy()->setTime((int)$h, (int)$m);
+                $endDt   = $startDt->copy()->addMinutes($duration);
+
+                Appointment::create([
+                    'professional_id' => $professionalId,
+                    'patient_id'  => $enrollment->patient_id,
+                    'specialty_id' => $specialtyId,
+                    'start_time'  => $startDt,
+                    'end_time'    => $endDt,
+                    'status'      => 'pendente',
+                    'notes'       => 'Pilates - Mat. ' . $enrollment->enrollment_number,
+                ]);
+
+                $created++;
+                $current->addWeek();
+            }
+        }
+
+        return response()->json(['created' => $created]);
     }
 
     public function toggleInstallment(PilatesEnrollmentInstallment $installment)

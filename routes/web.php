@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/pilates/matriculas/{enrollment}', [PilatesEnrollmentController::class, 'update'])->name('pilates.matriculas.update');
     Route::delete('/pilates/matriculas/{enrollment}', [PilatesEnrollmentController::class, 'destroy'])->name('pilates.matriculas.destroy');
     Route::patch('/pilates/matriculas/installments/{installment}/toggle', [PilatesEnrollmentController::class, 'toggleInstallment'])->name('pilates.matriculas.installments.toggle');
+    Route::post('/pilates/matriculas/{enrollment}/schedule', [PilatesEnrollmentController::class, 'schedule'])->name('pilates.matriculas.schedule');
     Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');
     Route::patch('/appointments/{appointment}', [AgendaController::class, 'update'])->name('appointments.update');
     Route::delete('/appointments/{appointment}', [AgendaController::class, 'destroy'])->name('appointments.destroy');

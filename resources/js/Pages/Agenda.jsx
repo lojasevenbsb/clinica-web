@@ -511,19 +511,20 @@ export default function Agenda({ professionals, patients, specialties, packages,
                     </div>
                 </div>
 
-                {/* Direita: toggle Mês/Semana/Dia + Novo Agendamento */}
+                {/* Direita: toggle Geral/Todos/Semana + Novo Agendamento */}
                 <div className="flex items-center gap-3">
                     <div className="flex items-center border border-outline-variant/40 rounded-xl overflow-hidden bg-surface-container-lowest">
                         {[
-                            { label: 'Mês',   action: handleGeralMode,                    active: geralMode },
-                            { label: 'Semana', action: () => { setGeralMode(false); if (selectedProfessionalId === 'all' || !selectedProfessionalId) handleProfessionalSelect(professionals[0]?.id ?? 'all'); }, active: !geralMode && !isAllMode },
-                            { label: 'Dia',   action: () => { setGeralMode(false); handleProfessionalSelect('all'); }, active: !geralMode && isAllMode },
-                        ].map(({ label, action, active }) => (
+                            { label: 'Mês',    icon: 'calendar_month', action: handleGeralMode, active: geralMode },
+                            { label: 'Dia',    icon: 'group',          action: () => { setGeralMode(false); handleProfessionalSelect('all'); }, active: !geralMode && isAllMode },
+                            { label: 'Semana', icon: null,             action: () => { setGeralMode(false); if (selectedProfessionalId === 'all' || !selectedProfessionalId) handleProfessionalSelect(professionals[0]?.id ?? 'all'); }, active: !geralMode && !isAllMode },
+                        ].map(({ label, icon, action, active }) => (
                             <button
                                 key={label}
                                 onClick={action}
-                                className={`px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'}`}
+                                className={`px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 ${active ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'}`}
                             >
+                                {icon && <span className="material-symbols-outlined text-base">{icon}</span>}
                                 {label}
                             </button>
                         ))}
@@ -586,32 +587,6 @@ export default function Agenda({ professionals, patients, specialties, packages,
                     <div className="flex items-center gap-3"></div>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                    <button
-                        onClick={handleGeralMode}
-                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${geralMode ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
-                    >
-                        <span className="material-symbols-outlined">calendar_month</span>
-                        <span className={`text-sm font-bold ${geralMode ? 'text-on-primary' : 'text-on-surface'}`}>
-                            Geral
-                        </span>
-                        {geralMode && (
-                            <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
-                        )}
-                    </button>
-
-                    <button
-                        onClick={() => handleProfessionalSelect('all')}
-                        className={`flex items-center gap-3 p-3 px-5 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId === 'all' && !geralMode ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
-                    >
-                        <span className="material-symbols-outlined">group</span>
-                        <span className={`text-sm font-bold ${selectedProfessionalId === 'all' && !geralMode ? 'text-on-primary' : 'text-on-surface'}`}>
-                            Todos
-                        </span>
-                        {selectedProfessionalId === 'all' && !geralMode && (
-                            <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
-                        )}
-                    </button>
-
                     {professionals.map(p => (
                         <label 
                             key={p.id}

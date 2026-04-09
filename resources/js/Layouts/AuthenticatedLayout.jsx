@@ -4,9 +4,12 @@ import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
     const { url } = usePage();
-    
+
     const isDashboard = url === '/dashboard';
     const isAgenda = url === '/agenda';
+    const isPilates = url.startsWith('/pilates');
+    const [pilatesOpen, setPilatesOpen] = useState(isPilates);
+
 
     return (
         <div className="bg-surface text-on-surface selection:bg-primary-fixed min-h-screen">
@@ -19,33 +22,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         </Link>
                     </div>
                     <nav className="flex-1 space-y-1">
-                        <Link 
-                            href={route('dashboard')} 
+                        <Link
+                            href={route('dashboard')}
                             className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isDashboard ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
                             <span className="material-symbols-outlined" style={isDashboard ? { fontVariationSettings: "'FILL' 1" } : {}}>home</span>
                             <span className="font-manrope body-md">Início</span>
-                        </Link>
-                        <Link 
-                            href={route('agenda')} 
-                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isAgenda ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
-                        >
-                            <span className="material-symbols-outlined" style={isAgenda ? { fontVariationSettings: "'FILL' 1" } : {}}>calendar_month</span>
-                            <span className="font-manrope body-md">Agenda</span>
-                        </Link>
-                        <Link 
-                            href={route('professionals.index')} 
-                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('professionals.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
-                        >
-                            <span className="material-symbols-outlined">badge</span>
-                            <span className="font-manrope body-md">Profissionais</span>
-                        </Link>
-                        <Link 
-                            href={route('specialties.index')} 
-                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('specialties.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
-                        >
-                            <span className="material-symbols-outlined">category</span>
-                            <span className="font-manrope body-md">Especialidades</span>
                         </Link>
                         <Link
                             href={route('patients.index')}
@@ -55,21 +37,60 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="font-manrope body-md">Cadastros</span>
                         </Link>
                         <Link
-                            href={route('pilates.matriculas.index')}
-                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.matriculas.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                            href={route('agenda')}
+                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isAgenda ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
-                            <span className="material-symbols-outlined" style={route().current('pilates.matriculas.*') ? { fontVariationSettings: "'FILL' 1" } : {}}>assignment</span>
-                            <span className="font-manrope body-md">Matrículas Pilates</span>
+                            <span className="material-symbols-outlined" style={isAgenda ? { fontVariationSettings: "'FILL' 1" } : {}}>calendar_month</span>
+                            <span className="font-manrope body-md">Agenda</span>
                         </Link>
-                        <div className="pl-4 border-l-2 border-stone-100 ml-5">
-                            <Link
-                                href={route('pilates.index')}
-                                className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.index') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
-                            >
-                                <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.index') ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
-                                <span className="font-manrope text-sm">Controle de Pilates</span>
-                            </Link>
-                        </div>
+                        {/* Pilates (menu colapsável) */}
+                        <button
+                            onClick={() => setPilatesOpen(o => !o)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isPilates ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                        >
+                            <span className="material-symbols-outlined" style={isPilates ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
+                            <span className="font-manrope body-md flex-1 text-left">Pilates</span>
+                            <span className="material-symbols-outlined text-base transition-transform duration-200" style={{ transform: pilatesOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
+                        </button>
+                        {pilatesOpen && (
+                            <div className="pl-4 border-l-2 border-stone-100 ml-5 space-y-1">
+                                <Link
+                                    href={route('pilates.dashboard')}
+                                    className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.dashboard') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.dashboard') ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
+                                    <span className="font-manrope text-sm">Dashboard</span>
+                                </Link>
+                                <Link
+                                    href={route('pilates.matriculas.index')}
+                                    className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.matriculas.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.matriculas.*') ? { fontVariationSettings: "'FILL' 1" } : {}}>assignment</span>
+                                    <span className="font-manrope text-sm">Matrículas Pilates</span>
+                                </Link>
+                                <Link
+                                    href={route('pilates.frequencia')}
+                                    className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.frequencia*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.frequencia*') ? { fontVariationSettings: "'FILL' 1" } : {}}>how_to_reg</span>
+                                    <span className="font-manrope text-sm">Controle de Frequência</span>
+                                </Link>
+                            </div>
+                        )}
+                        <Link
+                            href={route('professionals.index')}
+                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('professionals.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                        >
+                            <span className="material-symbols-outlined">badge</span>
+                            <span className="font-manrope body-md">Profissionais</span>
+                        </Link>
+                        <Link
+                            href={route('specialties.index')}
+                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('specialties.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                        >
+                            <span className="material-symbols-outlined">category</span>
+                            <span className="font-manrope body-md">Especialidades</span>
+                        </Link>
                         <a href="#" className="flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg">
                             <span className="material-symbols-outlined">payments</span>
                             <span className="font-manrope body-md">Financeiro</span>

@@ -10,6 +10,7 @@ use App\Http\Controllers\PatientPackageController;
 use App\Http\Controllers\PaymentOptionController;
 use App\Http\Controllers\PilatesController;
 use App\Http\Controllers\PilatesEnrollmentController;
+use App\Http\Controllers\PilatesAttendanceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -30,6 +31,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/agenda', [AgendaController::class, 'index'])->name('agenda');
     Route::get('/pilates', [PilatesController::class, 'index'])->name('pilates.index');
+    Route::get('/pilates/dashboard', [PilatesEnrollmentController::class, 'dashboard'])->name('pilates.dashboard');
+    Route::get('/pilates/frequencia', [PilatesAttendanceController::class, 'index'])->name('pilates.frequencia');
+    Route::get('/pilates/frequencia/{enrollment}', [PilatesAttendanceController::class, 'show'])->name('pilates.frequencia.show');
+    Route::post('/pilates/frequencia/upsert', [PilatesAttendanceController::class, 'upsert'])->name('pilates.frequencia.upsert');
+    Route::delete('/pilates/frequencia/{attendance}', [PilatesAttendanceController::class, 'destroy'])->name('pilates.frequencia.destroy');
     Route::get('/pilates/matriculas', [PilatesEnrollmentController::class, 'index'])->name('pilates.matriculas.index');
     Route::post('/pilates/matriculas', [PilatesEnrollmentController::class, 'store'])->name('pilates.matriculas.store');
     Route::put('/pilates/matriculas/{enrollment}', [PilatesEnrollmentController::class, 'update'])->name('pilates.matriculas.update');

@@ -10,6 +10,7 @@ use App\Models\PilatesEnrollmentInstallment;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class PilatesEnrollmentController extends Controller
 {
@@ -146,6 +147,115 @@ class PilatesEnrollmentController extends Controller
         $installment->save();
 
         return response()->json(['paid' => $installment->paid, 'paid_at' => $installment->paid_at]);
+    }
+
+    public function dashboard()
+    {
+        $today     = Carbon::today();
+        $monthStart = $today->copy()->startOfMonth();
+        $monthEnd   = $today->copy()->endOfMonth();
+
+        $all = PilatesEnrollment::with(['patient', 'package', 'installments', 'paymentMethod'])->get();
+
+        // KPIs
+        $ativos       = $all->where('status', 'active');
+        $receitaMes   = PilatesEnrollmentInstallment::whereBetween('paid_at', [$monthStart, $monthEnd])->where('paid', true)->sum('amount');
+        $aReceberMes  = PilatesEnrollmentInstallment::whereBetween('due_date', [$monthStart, $monthEnd])->where('paid', false)->sum('amount');
+        $inadimplentes = $all->filter(fn($e) =>
+            $e->installments->where('paid', false)->filter(fn($i) => $i->due_date && $i->due_date < $today)->count() > 0
+        );
+
+        // Vencendo este mês (end_date no mês corrente)
+        $vencendoMes = $all->filter(fn($e) =>
+            $e->end_date && $e->end_date->between($monthStart, $monthEnd) && $e->status === 'active'
+        )->map(fn($e) => [
+            'id'       => $e->id,
+            'patient'  => $e->patient?->name,
+            'package'  => $e->package?->name,
+            'end_date' => $e->end_date->toDateString(),
+            'price'    => $e->price,
+        ])->values();
+
+        // Parcelas em atraso
+        $atrasadas = PilatesEnrollmentInstallment::with('enrollment.patient')
+            ->where('paid', false)
+            ->where('due_date', '<', $today)
+            ->orderBy('due_date')
+            ->get()
+            ->map(fn($i) => [
+                'id'        => $i->id,
+                'patient'   => $i->enrollment?->patient?->name,
+                'due_date'  => $i->due_date->toDateString(),
+                'amount'    => $i->amount,
+                'dias_atraso' => $i->due_date->diffInDays($today),
+            ]);
+
+        // Distribuição por plano
+        $porPlano = $ativos->groupBy(fn($e) => $e->package?->name ?? 'Sem plano')
+            ->map(fn($g, $name) => ['name' => $name, 'count' => $g->count()])
+            ->values();
+
+        // Receita paga por mês (últimos 6 meses)
+        $receitaMeses = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $mes = $today->copy()->subMonths($i);
+            $pago = PilatesEnrollmentInstallment::whereYear('paid_at', $mes->year)
+                ->whereMonth('paid_at', $mes->month)
+                ->where('paid', true)
+                ->sum('amount');
+            $receitaMeses->push([
+                'mes'   => $mes->translatedFormat('M/y'),
+                'valor' => (float) $pago,
+            ]);
+        }
+
+        // Novas matrículas por mês (últimos 6 meses)
+        $novasMeses = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $mes = $today->copy()->subMonths($i);
+            $count = PilatesEnrollment::whereYear('created_at', $mes->year)
+                ->whereMonth('created_at', $mes->month)
+                ->count();
+            $novasMeses->push([
+                'mes'   => $mes->translatedFormat('M/y'),
+                'count' => $count,
+            ]);
+        }
+
+        // Lista rápida de alunos ativos
+        $alunosAtivos = $ativos->map(fn($e) => [
+            'id'              => $e->id,
+            'patient'         => $e->patient?->name,
+            'phone'           => $e->patient?->phone,
+            'package'         => $e->package?->name,
+            'price'           => $e->price,
+            'end_date'        => $e->end_date?->toDateString(),
+            'payment_method'  => $e->paymentMethod?->name,
+            'proxima_parcela' => $e->installments
+                ->where('paid', false)
+                ->filter(fn($i) => $i->due_date >= $today)
+                ->sortBy('due_date')
+                ->first()?->due_date?->toDateString(),
+            'parcelas_atraso' => $e->installments->where('paid', false)
+                ->filter(fn($i) => $i->due_date && $i->due_date < $today)->count(),
+        ])->sortBy('patient')->values();
+
+        return Inertia::render('Pilates/Dashboard', [
+            'kpis' => [
+                'ativos'        => $ativos->count(),
+                'receita_mes'   => (float) $receitaMes,
+                'a_receber_mes' => (float) $aReceberMes,
+                'inadimplentes' => $inadimplentes->count(),
+                'vencendo_mes'  => $vencendoMes->count(),
+                'novos_mes'     => PilatesEnrollment::whereMonth('created_at', $today->month)->whereYear('created_at', $today->year)->count(),
+            ],
+            'vencendo_mes'  => $vencendoMes,
+            'atrasadas'     => $atrasadas,
+            'por_plano'     => $porPlano,
+            'receita_meses' => $receitaMeses,
+            'novas_meses'   => $novasMeses,
+            'alunos_ativos' => $alunosAtivos,
+        ]);
     }
 
     private function formatEnrollment(PilatesEnrollment $e): array

@@ -35,10 +35,13 @@ class ProfessionalController extends Controller
             'specialties' => 'required|array|min:1',
             'specialties.*' => 'exists:specialties,id',
             'hours' => 'required|array|size:7',
-            'hours.*.day_of_week' => 'required|string',
-            'hours.*.is_open' => 'required|boolean',
-            'hours.*.open_time' => 'required|string',
-            'hours.*.close_time' => 'required|string',
+            'hours.*.day_of_week'       => 'required|string',
+            'hours.*.is_open'           => 'required|boolean',
+            'hours.*.open_time'         => 'required|string',
+            'hours.*.close_time'        => 'required|string',
+            'hours.*.has_second_period' => 'boolean',
+            'hours.*.open_time_2'       => 'nullable|string',
+            'hours.*.close_time_2'      => 'nullable|string',
         ]);
 
         $professional = Professional::create($validated);
@@ -71,10 +74,13 @@ class ProfessionalController extends Controller
             'specialties' => 'required|array|min:1',
             'specialties.*' => 'exists:specialties,id',
             'hours' => 'required|array|size:7',
-            'hours.*.day_of_week' => 'required|string',
-            'hours.*.is_open' => 'required|boolean',
-            'hours.*.open_time' => 'required|string',
-            'hours.*.close_time' => 'required|string',
+            'hours.*.day_of_week'       => 'required|string',
+            'hours.*.is_open'           => 'required|boolean',
+            'hours.*.open_time'         => 'required|string',
+            'hours.*.close_time'        => 'required|string',
+            'hours.*.has_second_period' => 'boolean',
+            'hours.*.open_time_2'       => 'nullable|string',
+            'hours.*.close_time_2'      => 'nullable|string',
         ]);
 
         $professional->update($validated);
@@ -84,9 +90,12 @@ class ProfessionalController extends Controller
             $professional->hours()->updateOrCreate(
                 ['day_of_week' => $hour['day_of_week']],
                 [
-                    'is_open' => $hour['is_open'],
-                    'open_time' => $hour['open_time'],
-                    'close_time' => $hour['close_time'],
+                    'is_open'           => $hour['is_open'],
+                    'open_time'         => $hour['open_time'],
+                    'close_time'        => $hour['close_time'],
+                    'has_second_period' => $hour['has_second_period'] ?? false,
+                    'open_time_2'       => ($hour['has_second_period'] ?? false) ? ($hour['open_time_2'] ?? null) : null,
+                    'close_time_2'      => ($hour['has_second_period'] ?? false) ? ($hour['close_time_2'] ?? null) : null,
                 ]
             );
         }

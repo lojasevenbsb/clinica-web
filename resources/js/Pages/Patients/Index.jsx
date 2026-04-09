@@ -194,6 +194,13 @@ export default function Index({ patients, filters, professionals, specialties, p
                                                 >
                                                     <span className="material-symbols-outlined text-sm">inventory_2</span>
                                                 </button>
+                                                <Link
+                                                    href={route('pilates.matriculas.index', { new_patient_id: patient.id })}
+                                                    className="p-2 text-[#466250] hover:bg-[#466250]/10 rounded-lg transition-colors"
+                                                    title="Matricular no Pilates"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">self_improvement</span>
+                                                </Link>
                                                 <Link href={route('patients.edit', patient.id)} className="p-2 text-stone-400 hover:text-primary transition-colors rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800">
                                                     <span className="material-symbols-outlined text-sm">edit</span>
                                                 </Link>

@@ -15,10 +15,14 @@ class ProfessionalHour extends Model
         'is_open',
         'open_time',
         'close_time',
+        'has_second_period',
+        'open_time_2',
+        'close_time_2',
     ];
 
     protected $casts = [
-        'is_open' => 'boolean',
+        'is_open'           => 'boolean',
+        'has_second_period' => 'boolean',
     ];
 
     public function professional()

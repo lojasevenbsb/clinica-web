@@ -55,7 +55,7 @@ class PilatesEnrollmentController extends Controller
         return Inertia::render('Pilates/Matriculas/Index', [
             'enrollments'    => $enrollments->map(fn($e) => $this->formatEnrollment($e)),
             'summary'        => $summary,
-            'filters'        => $request->only(['search', 'status']),
+            'filters'        => $request->only(['search', 'status', 'new_patient_id']),
             'pilatesPackages' => $pilatesPackages,
             'patients'       => $patients,
             'paymentOptions' => $paymentOptions,

@@ -21,10 +21,17 @@ const STATUS = {
 };
 
 /* ─── Modal Nova Matrícula ─────────────────────────────────────────────── */
-function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOptions, nextNumber, onSaved }) {
+function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOptions, nextNumber, onSaved, preselectedPatient }) {
     const [step, setStep]                   = useState('select'); // 'select' | 'form'
     const [search, setSearch]               = useState('');
     const [selectedPatient, setSelectedPatient] = useState(null);
+
+    useEffect(() => {
+        if (show && preselectedPatient) {
+            setSelectedPatient(preselectedPatient);
+            setStep('form');
+        }
+    }, [show, preselectedPatient]);
     const [mensalidade, setMensalidade]     = useState(false);
     const [parcelas, setParcelas]           = useState([]);
     const [melhorData, setMelhorData]       = useState(null);
@@ -37,15 +44,15 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
     const paymentTypes   = paymentOptions.filter(o => o.group === 'type');
 
     const [data, setDataState] = useState({
-        package_id: '', contract_number: '', start_date: new Date().toISOString().split('T')[0],
-        end_date: '', price: '', sessions_per_month: '', payment_method_id: '',
+        package_id: '', contract_number: nextNumber, start_date: new Date().toISOString().split('T')[0],
+        end_date: '', price: '', payment_method_id: '',
         payment_type_id: '', status: 'active', notes: '', mensalidade_meses: '',
     });
 
     const setData = (key, value) => setDataState(prev => ({ ...prev, [key]: value }));
 
     const reset = () => {
-        setDataState({ package_id: '', contract_number: '', start_date: new Date().toISOString().split('T')[0], end_date: '', price: '', sessions_per_month: '', payment_method_id: '', payment_type_id: '', status: 'active', notes: '', mensalidade_meses: '' });
+        setDataState({ package_id: '', contract_number: nextNumber, start_date: new Date().toISOString().split('T')[0], end_date: '', price: '', payment_method_id: '', payment_type_id: '', status: 'active', notes: '', mensalidade_meses: '' });
         setInstStartDate(''); setInstEndDate(''); setErrors({});
         setMensalidade(false); setParcelas([]); setMelhorData(null);
         setSelectedPatient(null); setSearch(''); setStep('select');
@@ -107,7 +114,8 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
 
     return (
         <Modal show={show} onClose={handleClose} maxWidth="lg">
-            <div className="p-8">
+            <div className="flex flex-col max-h-[90vh]">
+            <div className="p-8 pb-4 flex-shrink-0">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-[#466250]">Nova Matrícula</h2>
@@ -120,6 +128,8 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                     </div>
                     <button onClick={handleClose} className="p-2 text-stone-400 hover:text-stone-600 transition-colors"><span className="material-symbols-outlined">close</span></button>
                 </div>
+            </div>
+            <div className="overflow-y-auto flex-1 px-8 pb-8">
 
                 {/* Step 1 — Selecionar aluno */}
                 {step === 'select' && (
@@ -133,7 +143,6 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                                 <div className="text-center py-8 text-stone-400">
                                     <span className="material-symbols-outlined text-3xl text-stone-300">person_search</span>
                                     <p className="text-sm mt-2">Nenhuma pessoa encontrada.</p>
-                                    <a href={route('patients.create')} className="text-xs text-[#466250] underline mt-1 block">Criar novo cadastro</a>
                                 </div>
                             ) : filteredPatients.map(p => (
                                 <button key={p.id} type="button" onClick={() => { setSelectedPatient(p); setStep('form'); }}
@@ -148,6 +157,16 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                                     <span className="material-symbols-outlined text-stone-300">chevron_right</span>
                                 </button>
                             ))}
+                        </div>
+
+                        <div className="pt-2 border-t border-stone-100">
+                            <a
+                                href={route('patients.create')}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-[#466250]/40 text-[#466250] text-sm font-medium hover:bg-[#466250]/5 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-base">person_add</span>
+                                Cadastrar novo aluno
+                            </a>
                         </div>
                     </div>
                 )}
@@ -168,7 +187,7 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                             </div>
                             <div>
                                 <InputLabel htmlFor="contract_number" value="Nº do Contrato" />
-                                <TextInput id="contract_number" className="mt-1 block w-full" value={data.contract_number} onChange={e => setData('contract_number', e.target.value)} placeholder="ex: CONT-2026-001" />
+                                <TextInput id="contract_number" className="mt-1 block w-full" value={data.contract_number} onChange={e => setData('contract_number', e.target.value)} />
                                 <InputError message={errors.contract_number} className="mt-2" />
                             </div>
                         </div>
@@ -176,12 +195,19 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                         {/* Plano */}
                         <div>
                             <InputLabel htmlFor="package_id" value="Plano de Pilates" />
-                            <select id="package_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm"
+                            <select id="package_id" name="package_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm"
                                 value={data.package_id} onChange={e => { const pkg = pilatesPackages.find(p => p.id == e.target.value); setDataState(prev => ({ ...prev, package_id: e.target.value, price: pkg?.price ?? prev.price })); }}>
                                 <option value="">Selecione (opcional)</option>
-                                {pilatesPackages.map(p => <option key={p.id} value={p.id}>{p.name}{p.price ? ` — ${money(p.price)}` : ''}</option>)}
+                                {pilatesPackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                             <InputError message={errors.package_id} className="mt-2" />
+                        </div>
+
+                        {/* Valor Mensal */}
+                        <div>
+                            <InputLabel htmlFor="price" value="Valor Mensal (R$)" />
+                            <TextInput id="price" type="number" step="0.01" className="mt-1 block w-full" value={data.price} onChange={e => setData('price', e.target.value)} required />
+                            <InputError message={errors.price} className="mt-2" />
                         </div>
 
                         {/* Datas de início e término do contrato */}
@@ -201,45 +227,22 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                             </div>
                         </fieldset>
 
-                        {/* Valor + Aulas/mês */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <InputLabel htmlFor="price" value="Valor Mensal (R$)" />
-                                <TextInput id="price" type="number" step="0.01" className="mt-1 block w-full" value={data.price} onChange={e => setData('price', e.target.value)} required />
-                                <InputError message={errors.price} className="mt-2" />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="sessions_per_month" value="Aulas por Mês" />
-                                <TextInput id="sessions_per_month" type="number" min="1" className="mt-1 block w-full" value={data.sessions_per_month} onChange={e => setData('sessions_per_month', e.target.value)} placeholder="ex: 12" />
-                            </div>
-                        </div>
-
                         {/* Pagamento */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel htmlFor="payment_method_id" value="Forma de Pagamento" />
-                                <select id="payment_method_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
+                                <select id="payment_method_id" name="payment_method_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
                                     <option value="">Selecione</option>
                                     {paymentMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <InputLabel htmlFor="payment_type_id" value="Tipo de Pagamento" />
-                                <select id="payment_type_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
+                                <select id="payment_type_id" name="payment_type_id" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
                                     <option value="">Selecione</option>
                                     {paymentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
                             </div>
-                        </div>
-
-                        {/* Status */}
-                        <div>
-                            <InputLabel htmlFor="status" value="Status" />
-                            <select id="status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
-                                <option value="active">Ativo</option>
-                                <option value="inactive">Inativo</option>
-                                <option value="cancelled">Cancelado</option>
-                            </select>
                         </div>
 
                         {/* Toggle Mensalidades */}
@@ -305,6 +308,16 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                             </div>
                         )}
 
+                        {/* Status */}
+                        <div>
+                            <InputLabel htmlFor="status" value="Status" />
+                            <select id="status" name="status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
+                                <option value="active">Ativo</option>
+                                <option value="inactive">Inativo</option>
+                                <option value="cancelled">Cancelado</option>
+                            </select>
+                        </div>
+
                         {/* Observações */}
                         <div>
                             <InputLabel htmlFor="notes" value="Observações (Opcional)" />
@@ -317,6 +330,7 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
                         </div>
                     </form>
                 )}
+            </div>
             </div>
         </Modal>
     );
@@ -410,15 +424,15 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
                     {/* Pagamento */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <InputLabel value="Forma de Pagamento" />
-                            <select className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
+                            <InputLabel htmlFor="edit_payment_method" value="Forma de Pagamento" />
+                            <select id="edit_payment_method" name="edit_payment_method" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
                                 <option value="">Selecione</option>
                                 {paymentMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <InputLabel value="Tipo de Pagamento" />
-                            <select className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
+                            <InputLabel htmlFor="edit_payment_type" value="Tipo de Pagamento" />
+                            <select id="edit_payment_type" name="edit_payment_type" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
                                 <option value="">Selecione</option>
                                 {paymentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
@@ -427,7 +441,7 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
                     {/* Status */}
                     <div>
                         <InputLabel htmlFor="edit_status" value="Status" />
-                        <select id="edit_status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
+                        <select id="edit_status" name="edit_status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
                             <option value="active">Ativo</option>
                             <option value="inactive">Inativo</option>
                             <option value="cancelled">Cancelado</option>
@@ -435,8 +449,8 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
                     </div>
                     {/* Notas */}
                     <div>
-                        <InputLabel value="Observações" />
-                        <textarea className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.notes} onChange={e => setData('notes', e.target.value)} rows="2" />
+                        <InputLabel htmlFor="edit_notes" value="Observações" />
+                        <textarea id="edit_notes" name="edit_notes" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.notes} onChange={e => setData('notes', e.target.value)} rows="2" />
                     </div>
                     <div className="flex justify-end gap-3 pt-2">
                         <SecondaryButton type="button" onClick={onClose}>Cancelar</SecondaryButton>
@@ -581,8 +595,10 @@ function EnrollmentRow({ enrollment, paymentOptions, onEdit, onDelete }) {
 export default function MatriculasIndex({ enrollments: initialEnrollments, summary, filters, pilatesPackages, patients, paymentOptions, nextNumber }) {
     const [enrollments, setEnrollments] = useState(initialEnrollments);
     const [search, setSearch]           = useState(filters.search || '');
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const [status, setStatus]           = useState(filters.status || 'all');
     const [newModal, setNewModal]       = useState(false);
+    const [newModalPatient, setNewModalPatient] = useState(null);
     const [editModal, setEditModal]     = useState(false);
     const [editTarget, setEditTarget]   = useState(null);
     const [deleteModal, setDeleteModal] = useState(false);
@@ -590,6 +606,14 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
     const [deleting, setDeleting]       = useState(false);
 
     useEffect(() => setEnrollments(initialEnrollments), [initialEnrollments]);
+
+    useEffect(() => {
+        if (filters.new_patient_id) {
+            const p = patients.find(x => x.id == filters.new_patient_id);
+            if (p) { setNewModalPatient(p); setNewModal(true); }
+            router.get(route('pilates.matriculas.index'), {}, { replace: true, preserveState: true });
+        }
+    }, []);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -662,7 +686,31 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
                 <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">search</span>
                     <input type="text" placeholder="Buscar por aluno, nº matrícula ou contrato..." className="pl-10 pr-4 py-2.5 bg-white border-stone-200 rounded-xl text-sm focus:ring-[#466250] focus:border-[#466250] w-full outline-none border"
-                        value={search} onChange={e => setSearch(e.target.value)} />
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                        autoComplete="off"
+                    />
+                    {showSuggestions && search.trim().length >= 2 && (() => {
+                        const matches = patients.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+                        if (matches.length === 0) return null;
+                        return (
+                            <ul className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
+                                {matches.map(p => (
+                                    <li key={p.id}>
+                                        <button type="button"
+                                            onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { setSearch(p.name); setShowSuggestions(false); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#466250]/5 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-base text-stone-400">person</span>
+                                            <span className="text-stone-700">{p.name}</span>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        );
+                    })()}
                 </div>
                 <div className="flex gap-2">
                     {[['all', 'Todos'], ['active', 'Ativos'], ['inactive', 'Inativos'], ['cancelled', 'Cancelados']].map(([val, label]) => (
@@ -709,12 +757,13 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
             {/* Modal Nova Matrícula */}
             <EnrollmentModal
                 show={newModal}
-                onClose={() => setNewModal(false)}
+                onClose={() => { setNewModal(false); setNewModalPatient(null); }}
                 pilatesPackages={pilatesPackages}
                 patients={patients}
                 paymentOptions={paymentOptions}
                 nextNumber={nextNumber}
                 onSaved={handleSaved}
+                preselectedPatient={newModalPatient}
             />
 
             {/* Modal Editar */}

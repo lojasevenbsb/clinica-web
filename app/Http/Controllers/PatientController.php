@@ -37,12 +37,19 @@ class PatientController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'birth_date' => 'required|date',
-            'cpf' => 'required|string|unique:patients,cpf',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
+            'name'        => 'required|string|max:255',
+            'birth_date'  => 'required|date',
+            'cpf'         => ['required', 'string', 'unique:patients,cpf', new \App\Rules\ValidCpf],
+            'email'       => 'nullable|email|max:255',
+            'phone'       => 'nullable|string|max:20',
+            'address'     => 'nullable|string',
+            'cep'         => 'nullable|string|max:9',
+            'logradouro'  => 'nullable|string|max:255',
+            'numero'      => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:255',
+            'bairro'      => 'nullable|string|max:255',
+            'cidade'      => 'nullable|string|max:255',
+            'estado'      => 'nullable|string|max:2',
         ]);
 
         Patient::create($validated);
@@ -60,12 +67,19 @@ class PatientController extends Controller
     public function update(Request $request, Patient $patient)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'birth_date' => 'required|date',
-            'cpf' => 'required|string|unique:patients,cpf,' . $patient->id,
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
+            'name'        => 'required|string|max:255',
+            'birth_date'  => 'required|date',
+            'cpf'         => ['required', 'string', 'unique:patients,cpf,' . $patient->id, new \App\Rules\ValidCpf],
+            'email'       => 'nullable|email|max:255',
+            'phone'       => 'nullable|string|max:20',
+            'address'     => 'nullable|string',
+            'cep'         => 'nullable|string|max:9',
+            'logradouro'  => 'nullable|string|max:255',
+            'numero'      => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:255',
+            'bairro'      => 'nullable|string|max:255',
+            'cidade'      => 'nullable|string|max:255',
+            'estado'      => 'nullable|string|max:2',
         ]);
 
         $patient->update($validated);

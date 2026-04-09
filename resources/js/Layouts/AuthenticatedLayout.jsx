@@ -55,19 +55,21 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="font-manrope body-md">Cadastros</span>
                         </Link>
                         <Link
-                            href={route('pilates.index')}
-                            className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.index') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
-                        >
-                            <span className="material-symbols-outlined" style={route().current('pilates.index') ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
-                            <span className="font-manrope body-md">Controle de Pilates</span>
-                        </Link>
-                        <Link
                             href={route('pilates.matriculas.index')}
                             className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${route().current('pilates.matriculas.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
                             <span className="material-symbols-outlined" style={route().current('pilates.matriculas.*') ? { fontVariationSettings: "'FILL' 1" } : {}}>assignment</span>
                             <span className="font-manrope body-md">Matrículas Pilates</span>
                         </Link>
+                        <div className="pl-4 border-l-2 border-stone-100 ml-5">
+                            <Link
+                                href={route('pilates.index')}
+                                className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.index') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                            >
+                                <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.index') ? { fontVariationSettings: "'FILL' 1" } : {}}>self_improvement</span>
+                                <span className="font-manrope text-sm">Controle de Pilates</span>
+                            </Link>
+                        </div>
                         <a href="#" className="flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg">
                             <span className="material-symbols-outlined">payments</span>
                             <span className="font-manrope body-md">Financeiro</span>

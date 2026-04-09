@@ -16,6 +16,13 @@ class Patient extends Model
         'email',
         'phone',
         'address',
+        'cep',
+        'logradouro',
+        'numero',
+        'complemento',
+        'bairro',
+        'cidade',
+        'estado',
         'is_walk_in',
     ];
 

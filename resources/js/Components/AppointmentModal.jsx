@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { addMinutes, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
-export default function AppointmentModal({ show, onClose, professionals, patients, specialties, packages, appointments = [], professionalHours, selectedDate, selectedProfessionalId, appointment = null, preselectedPatientId = null }) {
+export default function AppointmentModal({ show, onClose, professionals, patients, specialties, packages, appointments = [], professionalHours, selectedDate, selectedProfessionalId, appointment = null, preselectedPatientId = null, preselectedHour = null }) {
     const { data, setData, post, patch, processing, errors, reset, clearErrors } = useForm({
         professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
         patient_mode: 'registered',
@@ -35,6 +35,8 @@ export default function AppointmentModal({ show, onClose, professionals, patient
     const [availableHours, setAvailableHours] = useState([]);
     const [isProfessionalWorking, setIsProfessionalWorking] = useState(true);
     const [repeatEnabled, setRepeatEnabled] = useState(false);
+    const [patientSearch, setPatientSearch] = useState('');
+    const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
     const [siblings, setSiblings] = useState([]);
     const [deletingId, setDeletingId] = useState(null);
     const hasProfessionalAndDate = Boolean(data.professional_id) && Boolean(data.date);
@@ -81,21 +83,25 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
         if (config && config.is_open) {
             setIsProfessionalWorking(true);
-            const startMinutes = parseTimeToMinutes(config.open_time);
-            const closeMinutes = parseTimeToMinutes(config.close_time);
-            const lastPossibleStart = closeMinutes - selectedDurationMinutes;
 
-            const slots = [];
-            if (
-                !Number.isNaN(startMinutes)
-                && !Number.isNaN(closeMinutes)
-                && startMinutes < closeMinutes
-                && lastPossibleStart >= startMinutes
-            ) {
-                for (let minute = startMinutes; minute <= lastPossibleStart; minute += SLOT_INTERVAL_MINUTES) {
-                    slots.push(minutesToHour(minute));
+            const buildSlots = (openTime, closeTime) => {
+                const rawStart = parseTimeToMinutes(openTime);
+                const close = parseTimeToMinutes(closeTime);
+                const start = Number.isNaN(rawStart) ? rawStart : Math.ceil(rawStart / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+                const last  = close - selectedDurationMinutes;
+                const result = [];
+                if (!Number.isNaN(start) && !Number.isNaN(close) && start < close && last >= start) {
+                    for (let m = start; m <= last; m += SLOT_INTERVAL_MINUTES) result.push(minutesToHour(m));
                 }
-            }
+                return result;
+            };
+
+            const slots = [
+                ...buildSlots(config.open_time, config.close_time),
+                ...(config.has_second_period && config.open_time_2 && config.close_time_2
+                    ? buildSlots(config.open_time_2, config.close_time_2)
+                    : []),
+            ];
 
             if (appointment && data.hour && !slots.includes(data.hour)) {
                 slots.unshift(data.hour);
@@ -138,7 +144,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                 });
             } else {
                 setData({
-                    professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? selectedProfessionalId : '',
+                    professional_id: selectedProfessionalId && selectedProfessionalId !== 'all' ? String(selectedProfessionalId) : '',
                     patient_mode: 'registered',
                     patient_id: preselectedPatientId ? String(preselectedPatientId) : '',
                     walk_in_name: '',
@@ -151,7 +157,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                     package_id: '',
                     patient_package_id: '',
                     date: selectedDate || '',
-                    hour: '08:00',
+                    hour: preselectedHour || '08:00',
                     start_time: '',
                     status: 'pendente',
                     notes: '',
@@ -161,6 +167,7 @@ export default function AppointmentModal({ show, onClose, professionals, patient
             }
             clearErrors();
             setRepeatEnabled(false);
+            setShowPatientSuggestions(false);
             setSiblings(appointment?.repeat_siblings ?? []);
             setDeletingId(null);
         }
@@ -190,6 +197,15 @@ export default function AppointmentModal({ show, onClose, professionals, patient
             setData(d => ({ ...d, repeat_days: [], repeat_weeks: 4 }));
         }
     }, [repeatEnabled]);
+
+    useEffect(() => {
+        if (data.patient_id) {
+            const p = patients.find(x => String(x.id) === String(data.patient_id));
+            if (p) setPatientSearch(p.name);
+        } else {
+            setPatientSearch('');
+        }
+    }, [data.patient_id]);
 
     const filteredPackages = data.specialty_id
         ? packages.filter(pkg => String(pkg.specialty_id) === String(data.specialty_id))
@@ -281,9 +297,99 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                 <form onSubmit={submit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                        {data.patient_mode === 'registered' ? (
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <InputLabel value="Pessoa" />
+                                    {!appointment && (
+                                        <a
+                                            href={route('patients.create')}
+                                            className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">person_add</span>
+                                            Cadastro rápido
+                                        </a>
+                                    )}
+                                </div>
+                                <div className="relative mt-1">
+                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-[18px]">search</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar pessoa por nome ou CPF..."
+                                        className="w-full pl-9 pr-4 py-2 border border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary text-sm outline-none focus:ring-1"
+                                        value={patientSearch}
+                                        onChange={e => {
+                                            setPatientSearch(e.target.value);
+                                            setShowPatientSuggestions(true);
+                                            if (!e.target.value) { setData('patient_id', ''); setData('patient_package_id', ''); }
+                                        }}
+                                        onFocus={() => setShowPatientSuggestions(true)}
+                                        onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 150)}
+                                        autoComplete="off"
+                                        required={data.patient_mode === 'registered'}
+                                    />
+                                    {showPatientSuggestions && patientSearch.trim().length >= 1 && (() => {
+                                        const matches = patients.filter(p =>
+                                            p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                                            (p.cpf && p.cpf.includes(patientSearch))
+                                        ).slice(0, 8);
+                                        if (matches.length === 0) return null;
+                                        return (
+                                            <ul className="absolute z-50 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-lg overflow-hidden">
+                                                {matches.map(p => (
+                                                    <li key={p.id}>
+                                                        <button
+                                                            type="button"
+                                                            onMouseDown={e => e.preventDefault()}
+                                                            onClick={() => {
+                                                                setData(d => ({ ...d, patient_id: String(p.id), patient_package_id: '' }));
+                                                                setPatientSearch(p.name);
+                                                                setShowPatientSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary/5 flex items-center gap-2"
+                                                        >
+                                                            <span className="material-symbols-outlined text-base text-stone-400">person</span>
+                                                            <div>
+                                                                <div className="font-medium text-stone-800 dark:text-stone-200">{p.name}</div>
+                                                                {p.cpf && <div className="text-xs text-stone-400">{p.cpf}</div>}
+                                                            </div>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        );
+                                    })()}
+                                </div>
+                                <InputError message={errors.patient_id} className="mt-2" />
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <InputLabel value="Nome" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setData('patient_mode', 'registered')}
+                                        className="flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-primary transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                        Buscar cadastro
+                                    </button>
+                                </div>
+                                <TextInput
+                                    className="w-full mt-1"
+                                    value={data.walk_in_name}
+                                    onChange={(e) => setData('walk_in_name', e.target.value)}
+                                    placeholder="Nome completo"
+                                    required={data.patient_mode === 'walk_in'}
+                                />
+                                <InputError message={errors.walk_in_name} className="mt-2" />
+                            </div>
+                        )}
+
                         <div>
                             <InputLabel value="Profissional" />
-                            <select 
+                            <select
                                 className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
                                 value={data.professional_id}
                                 onChange={(e) => {
@@ -298,53 +404,6 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             </select>
                             <InputError message={errors.professional_id} className="mt-2" />
                         </div>
-
-                        {!appointment && (
-                            <div>
-                                <InputLabel value="Tipo de Paciente" />
-                                <select
-                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
-                                    value={data.patient_mode}
-                                    onChange={(e) => setData('patient_mode', e.target.value)}
-                                >
-                                    <option value="registered">Paciente cadastrado</option>
-                                    <option value="walk_in">Paciente avulso (cadastro rápido)</option>
-                                </select>
-                            </div>
-                        )}
-
-                        {data.patient_mode === 'registered' ? (
-                            <div>
-                                <InputLabel value="Paciente" />
-                                <select
-                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
-                                    value={data.patient_id}
-                                    onChange={(e) => {
-                                        setData('patient_id', e.target.value);
-                                        setData('patient_package_id', '');
-                                    }}
-                                    required={data.patient_mode === 'registered'}
-                                >
-                                    <option value="">Selecionar Paciente</option>
-                                    {patients.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                                <InputError message={errors.patient_id} className="mt-2" />
-                            </div>
-                        ) : (
-                            <div>
-                                <InputLabel value="Nome do Paciente" />
-                                <TextInput
-                                    className="w-full mt-1"
-                                    value={data.walk_in_name}
-                                    onChange={(e) => setData('walk_in_name', e.target.value)}
-                                    placeholder="Nome completo"
-                                    required={data.patient_mode === 'walk_in'}
-                                />
-                                <InputError message={errors.walk_in_name} className="mt-2" />
-                            </div>
-                        )}
 
                         {data.patient_mode === 'walk_in' && (
                             <>

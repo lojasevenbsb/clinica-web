@@ -17,13 +17,13 @@ export default function Create({ specialties }) {
         color: '#466250',
         specialties: [],
         hours: [
-            { day_of_week: 'Segunda-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
-            { day_of_week: 'Terça-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
-            { day_of_week: 'Quarta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
-            { day_of_week: 'Quinta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
-            { day_of_week: 'Sexta-feira', is_open: true, open_time: '08:00', close_time: '18:00' },
-            { day_of_week: 'Sábado', is_open: false, open_time: '08:00', close_time: '12:00' },
-            { day_of_week: 'Domingo', is_open: false, open_time: '08:00', close_time: '12:00' },
+            { day_of_week: 'Segunda-feira', is_open: true,  open_time: '08:00', close_time: '18:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Terça-feira',   is_open: true,  open_time: '08:00', close_time: '18:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Quarta-feira',  is_open: true,  open_time: '08:00', close_time: '18:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Quinta-feira',  is_open: true,  open_time: '08:00', close_time: '18:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Sexta-feira',   is_open: true,  open_time: '08:00', close_time: '18:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Sábado',        is_open: false, open_time: '08:00', close_time: '12:00', has_second_period: false, open_time_2: null, close_time_2: null },
+            { day_of_week: 'Domingo',       is_open: false, open_time: '08:00', close_time: '12:00', has_second_period: false, open_time_2: null, close_time_2: null },
         ]
     });
 

@@ -20,17 +20,6 @@ const STATUS = {
     cancelled: { label: 'Cancelado', cls: 'bg-red-100 text-red-600' },
 };
 
-/* ─── Modal Nova Matrícula ─────────────────────────────────────────────── */
-const DAYS = [
-    { label: 'Dom', value: 0 },
-    { label: 'Seg', value: 1 },
-    { label: 'Ter', value: 2 },
-    { label: 'Qua', value: 3 },
-    { label: 'Qui', value: 4 },
-    { label: 'Sex', value: 5 },
-    { label: 'Sáb', value: 6 },
-];
-
 function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOptions, nextNumber, onSaved, preselectedPatient }) {
     const [step, setStep]                   = useState('select'); // 'select' | 'form' | 'schedule'
     const [search, setSearch]               = useState('');
@@ -482,11 +471,31 @@ function EnrollmentModal({ show, onClose, pilatesPackages, patients, paymentOpti
     );
 }
 
-/* ─── Modal Editar Matrícula ───────────────────────────────────────────── */
-function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSaved }) {
+/* ─── helpers agenda ────────────────────────────────────────────────────── */
+const DAYS = [
+    { label: 'Dom', value: 0 }, { label: 'Seg', value: 1 }, { label: 'Ter', value: 2 },
+    { label: 'Qua', value: 3 }, { label: 'Qui', value: 4 }, { label: 'Sex', value: 5 }, { label: 'Sáb', value: 6 },
+];
+
+/* ─── Modal Editar Matrícula (com abas) ─────────────────────────────────── */
+function EditEnrollmentModal({ show, onClose, enrollment, pilatesPackages, paymentOptions, professionals, onSaved }) {
+    const [activeTab, setActiveTab]   = useState('contrato');
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors]         = useState({});
     const [data, setDataState]        = useState(null);
+
+    /* ── aba Mensalidades ── */
+    const [mensalidade, setMensalidade] = useState(false);
+    const [parcelas, setParcelas]       = useState([]);
+    const [melhorData, setMelhorData]   = useState(null);
+
+    /* ── aba Agenda ── */
+    const [scheduleSlots, setScheduleSlots]         = useState({});
+    const [scheduleProfessional, setScheduleProfessional] = useState('');
+    const [scheduleProcessing, setScheduleProcessing]   = useState(false);
+    const [scheduleError, setScheduleError]         = useState('');
+    const [scheduleConflicts, setScheduleConflicts] = useState([]);
+    const [scheduleSaved, setScheduleSaved]         = useState(false);
 
     const paymentMethods = paymentOptions.filter(o => o.group === 'method');
     const paymentTypes   = paymentOptions.filter(o => o.group === 'type');
@@ -495,24 +504,62 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
         if (enrollment) {
             setDataState({
                 contract_number:    enrollment.contract_number   ?? '',
+                package_id:         enrollment.package?.id       ?? '',
                 start_date:         enrollment.start_date        ?? '',
                 end_date:           enrollment.end_date          ?? '',
                 price:              enrollment.price             ?? '',
-                sessions_per_month: enrollment.sessions_per_month ?? '',
-                payment_method_id:  '',
-                payment_type_id:    '',
+                payment_method_id:  enrollment.payment_method_id ?? '',
+                payment_type_id:    enrollment.payment_type_id   ?? '',
                 status:             enrollment.status,
                 notes:              enrollment.notes ?? '',
+                mensalidade_meses:  '',
             });
+            setMensalidade(false); setParcelas([]); setMelhorData(null); setErrors({});
+            setScheduleSlots({}); setScheduleProfessional(''); setScheduleError(''); setScheduleConflicts([]); setScheduleSaved(false);
+            setActiveTab('contrato');
         }
     }, [enrollment]);
 
     const setData = (key, value) => setDataState(prev => ({ ...prev, [key]: value }));
 
-    const submit = async (e) => {
+    /* Auto-calc meses */
+    useEffect(() => {
+        if (!data?.start_date || !data?.end_date) return;
+        const s = new Date(data.start_date + 'T00:00:00'), e = new Date(data.end_date + 'T00:00:00');
+        if (e <= s) return;
+        const meses = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+        if (meses > 0) setData('mensalidade_meses', String(meses));
+    }, [data?.start_date, data?.end_date]);
+
+    /* Gera parcelas preview */
+    useEffect(() => {
+        if (!mensalidade) { setParcelas([]); return; }
+        const numMeses = parseInt(data?.mensalidade_meses), valor = parseFloat(data?.price);
+        const baseDate = data?.start_date;
+        if (!numMeses || numMeses < 1 || !valor || !baseDate) { setParcelas([]); return; }
+        const start  = new Date(baseDate + 'T00:00:00');
+        const dueDay = melhorData ?? start.getDate();
+        const hoje   = new Date(); hoje.setHours(0, 0, 0, 0);
+        setParcelas(Array.from({ length: numMeses }, (_, i) => {
+            const venc = new Date(start.getFullYear(), start.getMonth() + i, dueDay);
+            return { numero: i + 1, due_date: venc.toISOString().split('T')[0], data: venc.toLocaleDateString('pt-BR'), amount: valor, valor: valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), paid: false, vencida: venc < hoje };
+        }));
+    }, [mensalidade, data?.mensalidade_meses, data?.price, data?.start_date, melhorData]);
+
+    /* Submit contrato */
+    const submitContrato = async (e) => {
         e.preventDefault(); setProcessing(true); setErrors({});
         try {
-            const res = await axios.put(route('pilates.matriculas.update', enrollment.id), { ...data, payment_method_id: data.payment_method_id || null, payment_type_id: data.payment_type_id || null });
+            const payload = {
+                ...data,
+                package_id:        data.package_id        || null,
+                payment_method_id: data.payment_method_id || null,
+                payment_type_id:   data.payment_type_id   || null,
+            };
+            if (mensalidade && parcelas.length > 0) {
+                payload.installments = parcelas.map(p => ({ numero: p.numero, due_date: p.due_date, amount: p.amount, paid: p.paid }));
+            }
+            const res = await axios.put(route('pilates.matriculas.update', enrollment.id), payload);
             onSaved(res.data);
             onClose();
         } catch (err) {
@@ -520,89 +567,494 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
         } finally { setProcessing(false); }
     };
 
+    /* Agenda: toggle dia */
+    const toggleDay = (day) => {
+        setScheduleSlots(prev => {
+            if (prev[day]) { const n = { ...prev }; delete n[day]; return n; }
+            return { ...prev, [day]: { time: '08:00', duration: 60, repeat: '' } };
+        });
+    };
+
+    /* Submit agenda */
+    const submitAgenda = async () => {
+        const slots = Object.entries(scheduleSlots).map(([day, s]) => ({
+            day_of_week: parseInt(day), start_time: s.time, duration: s.duration,
+            repeat: s.repeat ? parseInt(s.repeat) : undefined,
+        }));
+        if (slots.length === 0) return;
+        setScheduleProcessing(true); setScheduleError(''); setScheduleConflicts([]);
+        try {
+            await axios.post(route('pilates.matriculas.schedule', enrollment.id), {
+                slots,
+                professional_id: scheduleProfessional || undefined,
+            });
+            setScheduleSaved(true);
+        } catch (err) {
+            const data = err.response?.data ?? {};
+            setScheduleConflicts(data.conflicts ?? []);
+            const msg = data.message
+                || Object.values(data.errors ?? {}).flat()[0]
+                || 'Não foi possível gerar os agendamentos.';
+            setScheduleError(msg);
+        } finally { setScheduleProcessing(false); }
+    };
+
     if (!data) return null;
 
+    const selectedPackage = pilatesPackages.find(p => p.id == data.package_id);
+
+    const TABS = [
+        { id: 'contrato',     label: 'Contrato',     icon: 'assignment' },
+        { id: 'mensalidades', label: 'Mensalidades',  icon: 'payments' },
+        { id: 'agenda',       label: 'Agenda',        icon: 'calendar_month' },
+    ];
+
     return (
-        <Modal show={show} onClose={onClose} maxWidth="lg">
-            <div className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 className="text-2xl font-bold text-[#466250]">Editar Matrícula</h2>
-                        <p className="text-stone-500 text-sm"><span className="font-mono text-[#466250]">{enrollment?.enrollment_number}</span> · {enrollment?.patient?.name}</p>
+        <Modal show={show} onClose={onClose} maxWidth="2xl">
+            <div className="flex flex-col max-h-[92vh]">
+
+                {/* ── Cabeçalho ── */}
+                <div className="px-6 pt-5 pb-0 flex-shrink-0">
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-[#466250]">Editar Matrícula</h2>
+                            <p className="text-stone-500 text-sm mt-0.5 flex items-center gap-2">
+                                <span className="font-mono text-[#466250] text-xs bg-[#466250]/8 px-2 py-0.5 rounded-lg">{enrollment?.enrollment_number}</span>
+                                <span className="font-semibold text-stone-700">{enrollment?.patient?.name}</span>
+                            </p>
+                        </div>
+                        <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-xl transition-colors">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600"><span className="material-symbols-outlined">close</span></button>
+
+                    {/* Abas */}
+                    <div className="flex gap-1 border-b border-stone-100">
+                        {TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
+                                    activeTab === tab.id
+                                        ? 'border-[#466250] text-[#466250]'
+                                        : 'border-transparent text-stone-400 hover:text-stone-600 hover:border-stone-200'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{tab.icon}</span>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <form onSubmit={submit} className="space-y-5">
-                    {/* Contrato */}
-                    <div>
-                        <InputLabel htmlFor="edit_contract" value="Nº do Contrato" />
-                        <TextInput id="edit_contract" className="mt-1 block w-full" value={data.contract_number} onChange={e => setData('contract_number', e.target.value)} placeholder="ex: CONT-2026-001" />
-                        <InputError message={errors.contract_number} className="mt-2" />
-                    </div>
-                    {/* Datas */}
-                    <fieldset className="border border-stone-100 rounded-xl p-4 space-y-3">
-                        <legend className="text-xs font-bold text-stone-400 uppercase tracking-wider px-1">Período do Contrato</legend>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <InputLabel htmlFor="edit_start" value="Início" />
-                                <TextInput id="edit_start" type="date" className="mt-1 block w-full" value={data.start_date} onChange={e => setData('start_date', e.target.value)} required />
-                                <InputError message={errors.start_date} className="mt-2" />
+
+                {/* ── Conteúdo das abas ── */}
+                <div className="overflow-y-auto flex-1 p-6">
+
+                    {/* ═══ ABA: CONTRATO ═══ */}
+                    {activeTab === 'contrato' && (
+                        <form onSubmit={submitContrato} className="space-y-5">
+
+                            {/* Identificação */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <InputLabel value="Nº da Matrícula" />
+                                    <div className="mt-1 px-4 py-2.5 bg-[#466250]/5 border border-[#466250]/20 rounded-xl text-sm font-mono text-[#466250] font-bold tracking-wider">
+                                        {enrollment?.enrollment_number}
+                                    </div>
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="edit_contract" value="Nº do Contrato" />
+                                    <TextInput id="edit_contract" className="mt-1 block w-full" value={data.contract_number} onChange={e => setData('contract_number', e.target.value)} placeholder="ex: CONT-2026-001" />
+                                    <InputError message={errors.contract_number} className="mt-2" />
+                                </div>
                             </div>
+
+                            {/* Plano */}
                             <div>
-                                <InputLabel htmlFor="edit_end" value="Término" />
-                                <TextInput id="edit_end" type="date" className="mt-1 block w-full" value={data.end_date} onChange={e => setData('end_date', e.target.value)} min={data.start_date || undefined} />
-                                <InputError message={errors.end_date} className="mt-2" />
+                                <InputLabel htmlFor="edit_package" value="Plano de Pilates" />
+                                <div className="relative mt-1">
+                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 18 }}>fitness_center</span>
+                                    <select
+                                        id="edit_package"
+                                        className="w-full pl-9 pr-9 py-2.5 border border-stone-200 rounded-xl text-sm bg-white appearance-none focus:ring-[#466250] focus:border-[#466250] outline-none cursor-pointer"
+                                        value={data.package_id}
+                                        onChange={e => {
+                                            const pkg = pilatesPackages.find(p => p.id == e.target.value);
+                                            setDataState(prev => ({ ...prev, package_id: e.target.value, price: pkg?.price != null ? pkg.price : prev.price }));
+                                        }}
+                                    >
+                                        <option value="">— Sem plano vinculado —</option>
+                                        {pilatesPackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    </select>
+                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 18 }}>expand_more</span>
+                                </div>
+                                {selectedPackage && (
+                                    <div className="mt-2 flex items-center gap-3 px-3 py-2 bg-[#466250]/5 border border-[#466250]/20 rounded-xl text-sm">
+                                        <span className="material-symbols-outlined text-[#466250]" style={{ fontSize: 16 }}>check_circle</span>
+                                        <span className="font-semibold text-[#466250]">{selectedPackage.name}</span>
+                                        {selectedPackage.price != null && <span className="text-stone-500">{money(selectedPackage.price)}/mês</span>}
+                                    </div>
+                                )}
+                                <InputError message={errors.package_id} className="mt-2" />
+                            </div>
+
+                            {/* Período */}
+                            <fieldset className="border border-stone-100 rounded-xl p-4 space-y-3">
+                                <legend className="text-xs font-bold text-stone-400 uppercase tracking-wider px-1">Período do Contrato</legend>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <InputLabel htmlFor="edit_start" value="Início" />
+                                        <TextInput id="edit_start" type="date" className="mt-1 block w-full" value={data.start_date} onChange={e => setData('start_date', e.target.value)} required />
+                                        <InputError message={errors.start_date} className="mt-2" />
+                                    </div>
+                                    <div>
+                                        <InputLabel htmlFor="edit_end" value="Término" />
+                                        <TextInput id="edit_end" type="date" className="mt-1 block w-full" value={data.end_date} onChange={e => setData('end_date', e.target.value)} min={data.start_date || undefined} />
+                                        <InputError message={errors.end_date} className="mt-2" />
+                                    </div>
+                                </div>
+                            </fieldset>
+
+                            {/* Valor */}
+                            <div>
+                                <InputLabel htmlFor="edit_price" value="Valor Mensal (R$)" />
+                                <TextInput id="edit_price" type="number" step="0.01" className="mt-1 block w-full" value={data.price} onChange={e => setData('price', e.target.value)} required />
+                                <InputError message={errors.price} className="mt-2" />
+                            </div>
+
+                            {/* Pagamento */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <InputLabel htmlFor="edit_pay_method" value="Forma de Pagamento" />
+                                    <select id="edit_pay_method" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
+                                        <option value="">Selecione</option>
+                                        {paymentMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="edit_pay_type" value="Tipo de Pagamento" />
+                                    <select id="edit_pay_type" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
+                                        <option value="">Selecione</option>
+                                        {paymentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Status */}
+                            <div>
+                                <InputLabel htmlFor="edit_status" value="Status da Matrícula" />
+                                <select id="edit_status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
+                                    <option value="active">Ativo</option>
+                                    <option value="inactive">Inativo</option>
+                                    <option value="cancelled">Cancelado</option>
+                                </select>
+                            </div>
+
+                            {/* Observações */}
+                            <div>
+                                <InputLabel htmlFor="edit_notes" value="Observações (Opcional)" />
+                                <textarea id="edit_notes" className="mt-1 block w-full border border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm p-3" value={data.notes} onChange={e => setData('notes', e.target.value)} rows="2" placeholder="Restrições, observações clínicas..." />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <SecondaryButton type="button" onClick={onClose}>Cancelar</SecondaryButton>
+                                <PrimaryButton disabled={processing}>{processing ? 'Salvando...' : 'Salvar Alterações'}</PrimaryButton>
+                            </div>
+                        </form>
+                    )}
+
+                    {/* ═══ ABA: MENSALIDADES ═══ */}
+                    {activeTab === 'mensalidades' && (
+                        <div className="space-y-5">
+                            {/* Parcelas existentes */}
+                            {enrollment?.installments?.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">
+                                        Parcelas atuais — {enrollment.installments.length} no total
+                                    </p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        {enrollment.installments.map(inst => {
+                                            const overdue = !inst.paid && new Date(inst.due_date) < new Date();
+                                            return (
+                                                <div key={inst.id} className={`rounded-xl border p-3 flex flex-col gap-1.5 text-sm ${inst.paid ? 'bg-emerald-50 border-emerald-200' : overdue ? 'bg-red-50 border-red-200' : 'bg-white border-stone-200'}`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold text-stone-500">Parcela {inst.numero}</span>
+                                                        {inst.paid
+                                                            ? <span className="material-symbols-outlined text-emerald-500" style={{ fontSize: 15 }}>check_circle</span>
+                                                            : overdue
+                                                                ? <span className="material-symbols-outlined text-red-400" style={{ fontSize: 15 }}>warning</span>
+                                                                : <span className="material-symbols-outlined text-amber-400" style={{ fontSize: 15 }}>schedule</span>
+                                                        }
+                                                    </div>
+                                                    <div className="font-bold text-stone-700">{money(inst.amount)}</div>
+                                                    <div className="text-xs text-stone-400">Venc. {fmt(inst.due_date)}</div>
+                                                    {inst.paid && inst.paid_at && <div className="text-xs text-emerald-600">Pago em {fmt(inst.paid_at)}</div>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Regerar mensalidades */}
+                            <div className="border-t border-stone-100 pt-5">
+                                <div
+                                    onClick={() => setMensalidade(v => !v)}
+                                    className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${mensalidade ? 'border-[#466250] bg-[#466250]/5' : 'border-stone-200 hover:border-stone-300'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className={`material-symbols-outlined ${mensalidade ? 'text-[#466250]' : 'text-stone-400'}`}>autorenew</span>
+                                        <div>
+                                            <p className={`font-bold text-sm ${mensalidade ? 'text-[#466250]' : 'text-stone-700'}`}>Regerar Mensalidades</p>
+                                            <p className="text-xs text-stone-400">Substitui parcelas pendentes pelo novo período</p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${mensalidade ? 'bg-[#466250]' : 'bg-stone-300'}`}>
+                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${mensalidade ? 'left-6' : 'left-1'}`} />
+                                    </div>
+                                </div>
+
+                                {mensalidade && (
+                                    <div className="space-y-3 p-4 bg-stone-50 rounded-xl border border-stone-100 mt-3">
+                                        {data.start_date && data.end_date && data.mensalidade_meses ? (
+                                            <div className="flex items-center gap-2 text-xs text-stone-500">
+                                                <span className="material-symbols-outlined text-[#466250]" style={{ fontSize: 16 }}>date_range</span>
+                                                Período: {fmt(data.start_date)} → {fmt(data.end_date)}
+                                                <span className="ml-1 font-semibold text-[#466250]">({data.mensalidade_meses} meses)</span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 15 }}>warning</span>
+                                                Preencha início e término na aba Contrato para gerar as parcelas.
+                                            </p>
+                                        )}
+                                        <div>
+                                            <InputLabel htmlFor="edit_melhor_dia" value="Melhor dia de vencimento" />
+                                            <TextInput id="edit_melhor_dia" type="number" min="1" max="31" className="mt-1 block w-full" placeholder="Dia (1–31) — padrão: dia do início" value={melhorData ?? ''} onChange={e => { const v = parseInt(e.target.value); setMelhorData(e.target.value === '' ? null : (v >= 1 && v <= 31 ? v : melhorData)); }} />
+                                        </div>
+                                        {parcelas.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{parcelas.length} parcela{parcelas.length > 1 ? 's' : ''} a gerar</p>
+                                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                                    {parcelas.map(p => (
+                                                        <div key={p.numero} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-stone-100 text-sm">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-5 h-5 rounded-full bg-[#466250]/10 text-[#466250] flex items-center justify-center text-[10px] font-bold">{p.numero}</span>
+                                                                <span className="text-stone-600">{p.data}</span>
+                                                            </div>
+                                                            <span className="font-bold text-[#466250]">R$ {p.valor}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <p className="text-xs text-stone-400 mt-2 text-right">Total: <span className="font-bold text-stone-600">{money(parseFloat(data.price) * parcelas.length)}</span></p>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-end pt-1">
+                                            <button
+                                                type="button"
+                                                disabled={processing || parcelas.length === 0}
+                                                onClick={async () => {
+                                                    setProcessing(true); setErrors({});
+                                                    try {
+                                                        const payload = { ...data, package_id: data.package_id || null, payment_method_id: data.payment_method_id || null, payment_type_id: data.payment_type_id || null, installments: parcelas.map(p => ({ numero: p.numero, due_date: p.due_date, amount: p.amount, paid: false })) };
+                                                        const res = await axios.put(route('pilates.matriculas.update', enrollment.id), payload);
+                                                        onSaved(res.data); setMensalidade(false); setParcelas([]);
+                                                    } catch (err) { if (err.response?.data?.errors) setErrors(err.response.data.errors); }
+                                                    finally { setProcessing(false); }
+                                                }}
+                                                className="flex items-center gap-2 px-5 py-2 bg-[#466250] text-white rounded-xl text-sm font-bold hover:bg-[#384f40] transition-all disabled:opacity-60"
+                                            >
+                                                {processing ? 'Salvando...' : 'Aplicar Mensalidades'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    </fieldset>
-                    {/* Valor + Aulas */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <InputLabel htmlFor="edit_price" value="Valor Mensal (R$)" />
-                            <TextInput id="edit_price" type="number" step="0.01" className="mt-1 block w-full" value={data.price} onChange={e => setData('price', e.target.value)} required />
-                            <InputError message={errors.price} className="mt-2" />
+                    )}
+
+                    {/* ═══ ABA: AGENDA ═══ */}
+                    {activeTab === 'agenda' && (
+                        <div className="space-y-6">
+                            {/* Info do plano */}
+                            {enrollment?.package?.name && (
+                                <div className="flex items-center gap-3 p-4 bg-[#466250]/5 border border-[#466250]/20 rounded-xl">
+                                    <span className="material-symbols-outlined text-[#466250]">fitness_center</span>
+                                    <div>
+                                        <p className="text-xs text-stone-400 font-semibold">Plano</p>
+                                        <p className="font-bold text-stone-800 text-sm">{enrollment.package.name}</p>
+                                    </div>
+                                    {enrollment.start_date && enrollment.end_date && (
+                                        <div className="ml-auto text-right">
+                                            <p className="text-xs text-stone-400">Período</p>
+                                            <p className="text-sm font-semibold text-stone-700">{fmt(enrollment.start_date)} → {fmt(enrollment.end_date)}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {scheduleSaved && (
+                                <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
+                                    Agendamentos gerados com sucesso!
+                                </div>
+                            )}
+
+                            {scheduleError && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-start gap-2 text-sm text-red-700 font-semibold">
+                                        <span className="material-symbols-outlined text-red-500 flex-shrink-0" style={{ fontSize: 20 }}>event_busy</span>
+                                        <span>Horários indisponíveis — escolha outro profissional ou ajuste os horários.</span>
+                                    </div>
+                                    {scheduleConflicts.length > 0 && (
+                                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                                            {scheduleConflicts.map((c, i) => (
+                                                <div key={i} className="flex items-center gap-2 bg-white border border-red-100 rounded-lg px-3 py-2 text-xs">
+                                                    <span className="material-symbols-outlined text-red-400" style={{ fontSize: 14 }}>block</span>
+                                                    <div>
+                                                        <p className="font-semibold text-red-700">{c.data}</p>
+                                                        <p className="text-red-500">{c.inicio} – {c.fim}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Profissional */}
+                            {professionals?.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Profissional</p>
+                                    <div className="relative">
+                                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 18 }}>person</span>
+                                        <select
+                                            className="w-full pl-9 pr-9 py-2.5 border border-stone-200 rounded-xl text-sm bg-white appearance-none focus:ring-[#466250] focus:border-[#466250] outline-none cursor-pointer"
+                                            value={scheduleProfessional}
+                                            onChange={e => setScheduleProfessional(e.target.value)}
+                                        >
+                                            <option value="">— Selecionar automaticamente —</option>
+                                            {professionals.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 18 }}>expand_more</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Seleção de dias */}
+                            <div>
+                                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">
+                                    Dias da semana
+                                    {Object.keys(scheduleSlots).length > 0 && (
+                                        <span className="ml-2 normal-case font-normal text-[#466250]">
+                                            — {Object.keys(scheduleSlots).length} dia{Object.keys(scheduleSlots).length > 1 ? 's' : ''} selecionado{Object.keys(scheduleSlots).length > 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                </p>
+                                <div className="grid grid-cols-7 gap-2">
+                                    {DAYS.map(d => {
+                                        const active = !!scheduleSlots[d.value];
+                                        return (
+                                            <button key={d.value} type="button" onClick={() => toggleDay(d.value)}
+                                                className={`py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${active ? 'bg-[#466250] text-white border-[#466250] shadow-md shadow-[#466250]/20' : 'bg-white text-stone-500 border-stone-200 hover:border-[#466250]/40 hover:text-[#466250]'}`}>
+                                                {d.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Horários */}
+                            {Object.keys(scheduleSlots).length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Horários</p>
+                                    {DAYS.filter(d => scheduleSlots[d.value]).map(d => (
+                                        <div key={d.value} className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
+                                            <div className="w-10 h-10 rounded-xl bg-[#466250] flex items-center justify-center flex-shrink-0">
+                                                <span className="text-white text-xs font-bold">{d.label}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 flex-1 flex-wrap">
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-xs text-stone-500 whitespace-nowrap">Início</label>
+                                                    <input type="time" value={scheduleSlots[d.value].time}
+                                                        onChange={e => setScheduleSlots(prev => ({ ...prev, [d.value]: { ...prev[d.value], time: e.target.value } }))}
+                                                        className="border border-stone-200 rounded-lg px-2 py-1 text-sm focus:ring-[#466250] focus:border-[#466250] outline-none" />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-xs text-stone-500 whitespace-nowrap">Duração</label>
+                                                    <select value={scheduleSlots[d.value].duration}
+                                                        onChange={e => setScheduleSlots(prev => ({ ...prev, [d.value]: { ...prev[d.value], duration: parseInt(e.target.value) } }))}
+                                                        className="border border-stone-200 rounded-lg px-2 py-1 text-sm focus:ring-[#466250] focus:border-[#466250] outline-none">
+                                                        <option value={30}>30 min</option>
+                                                        <option value={45}>45 min</option>
+                                                        <option value={60}>1 hora</option>
+                                                        <option value={90}>1h30</option>
+                                                        <option value={120}>2 horas</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <button type="button" onClick={() => toggleDay(d.value)} className="p-1 text-stone-300 hover:text-red-400 rounded-lg transition-colors">
+                                                <span className="material-symbols-outlined text-base">close</span>
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {/* Preview de datas */}
+                                    {enrollment?.start_date && enrollment?.end_date && (() => {
+                                        const buildDates = (dayOfWeek) => {
+                                            const s = new Date(enrollment.start_date + 'T00:00:00');
+                                            const e = new Date(enrollment.end_date   + 'T00:00:00');
+                                            const dates = []; const cur = new Date(s);
+                                            while (cur.getDay() !== dayOfWeek) cur.setDate(cur.getDate() + 1);
+                                            while (cur <= e) { dates.push(new Date(cur)); cur.setDate(cur.getDate() + 7); }
+                                            return dates;
+                                        };
+                                        const allDates = DAYS
+                                            .filter(d => scheduleSlots[d.value])
+                                            .flatMap(d => buildDates(d.value).map(dt => ({ day: d.label, date: dt, time: scheduleSlots[d.value].time })))
+                                            .sort((a, b) => a.date - b.date);
+
+                                        if (allDates.length === 0) return null;
+                                        return (
+                                            <div className="bg-stone-50 rounded-xl border border-stone-100 p-4">
+                                                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">
+                                                    {allDates.length} agendamento{allDates.length !== 1 ? 's' : ''} a serem criados
+                                                </p>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                                                    {allDates.map((item, i) => (
+                                                        <div key={i} className="flex items-center gap-2 bg-white border border-stone-100 rounded-lg px-3 py-2">
+                                                            <span className="w-7 h-7 rounded-lg bg-[#466250] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                                                                {item.day}
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-semibold text-stone-700">{item.date.toLocaleDateString('pt-BR')}</p>
+                                                                <p className="text-[10px] text-stone-400">{item.time}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <div className="flex justify-end pt-2">
+                                        <button type="button" disabled={scheduleProcessing || Object.keys(scheduleSlots).length === 0} onClick={submitAgenda}
+                                            className="flex items-center gap-2 px-6 py-2.5 bg-[#466250] text-white rounded-xl font-bold hover:bg-[#384f40] transition-all shadow-md shadow-[#466250]/20 disabled:opacity-60">
+                                            {scheduleProcessing
+                                                ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Agendando...</>
+                                                : <><span className="material-symbols-outlined text-sm">calendar_add_on</span> Gerar Agendamentos ({Object.keys(scheduleSlots).length} dia{Object.keys(scheduleSlots).length > 1 ? 's' : ''})</>
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <InputLabel htmlFor="edit_sessions" value="Aulas por Mês" />
-                            <TextInput id="edit_sessions" type="number" min="1" className="mt-1 block w-full" value={data.sessions_per_month} onChange={e => setData('sessions_per_month', e.target.value)} />
-                        </div>
-                    </div>
-                    {/* Pagamento */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <InputLabel htmlFor="edit_payment_method" value="Forma de Pagamento" />
-                            <select id="edit_payment_method" name="edit_payment_method" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_method_id} onChange={e => setData('payment_method_id', e.target.value)}>
-                                <option value="">Selecione</option>
-                                {paymentMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="edit_payment_type" value="Tipo de Pagamento" />
-                            <select id="edit_payment_type" name="edit_payment_type" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.payment_type_id} onChange={e => setData('payment_type_id', e.target.value)}>
-                                <option value="">Selecione</option>
-                                {paymentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    {/* Status */}
-                    <div>
-                        <InputLabel htmlFor="edit_status" value="Status" />
-                        <select id="edit_status" name="edit_status" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm" value={data.status} onChange={e => setData('status', e.target.value)}>
-                            <option value="active">Ativo</option>
-                            <option value="inactive">Inativo</option>
-                            <option value="cancelled">Cancelado</option>
-                        </select>
-                    </div>
-                    {/* Notas */}
-                    <div>
-                        <InputLabel htmlFor="edit_notes" value="Observações" />
-                        <textarea id="edit_notes" name="edit_notes" className="mt-1 block w-full border-stone-200 focus:border-[#466250] focus:ring-[#466250] rounded-xl shadow-sm text-sm" value={data.notes} onChange={e => setData('notes', e.target.value)} rows="2" />
-                    </div>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton type="button" onClick={onClose}>Cancelar</SecondaryButton>
-                        <PrimaryButton disabled={processing}>{processing ? 'Salvando...' : 'Salvar Alterações'}</PrimaryButton>
-                    </div>
-                </form>
+                    )}
+
+                </div>
             </div>
         </Modal>
     );
@@ -610,11 +1062,20 @@ function EditEnrollmentModal({ show, onClose, enrollment, paymentOptions, onSave
 
 /* ─── Linha expandível da tabela ───────────────────────────────────────── */
 function EnrollmentRow({ enrollment, paymentOptions, onEdit, onDelete }) {
-    const [open, setOpen]           = useState(false);
+    const [open, setOpen]                 = useState(false);
     const [installments, setInstallments] = useState(enrollment.installments);
-    const [toggling, setToggling]   = useState(null);
+    const [toggling, setToggling]         = useState(null);
+    const [appointments, setAppointments] = useState(null); // null = não carregado
 
     useEffect(() => setInstallments(enrollment.installments), [enrollment.installments]);
+
+    useEffect(() => {
+        if (open && appointments === null) {
+            axios.get(route('pilates.matriculas.appointments', enrollment.id))
+                .then(res => setAppointments(res.data))
+                .catch(() => setAppointments([]));
+        }
+    }, [open]);
 
     const togglePaid = (inst) => {
         setToggling(inst.id);
@@ -723,6 +1184,88 @@ function EnrollmentRow({ enrollment, paymentOptions, onEdit, onDelete }) {
                                     </p>
                                 </>
                             )}
+                            {/* Resumo de agendamentos */}
+                            {(() => {
+                                if (appointments === null) return (
+                                    <div className="mt-4 pt-4 border-t border-stone-100 flex items-center gap-2 text-xs text-stone-400">
+                                        <span className="material-symbols-outlined animate-spin text-stone-300" style={{ fontSize: 14 }}>progress_activity</span>
+                                        Carregando agendamentos...
+                                    </div>
+                                );
+                                if (appointments.length === 0) return (
+                                    <div className="mt-4 pt-4 border-t border-stone-100">
+                                        <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Agendamentos</p>
+                                        <p className="text-sm text-stone-400">Nenhum agendamento gerado para esta matrícula.</p>
+                                    </div>
+                                );
+
+                                const statusCfg = {
+                                    pendente:   { cls: 'bg-amber-50 border-amber-200 text-amber-700',   icon: 'schedule' },
+                                    confirmado: { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: 'check_circle' },
+                                    cancelado:  { cls: 'bg-red-50 border-red-200 text-red-500',         icon: 'cancel' },
+                                    realizado:  { cls: 'bg-blue-50 border-blue-200 text-blue-600',      icon: 'done_all' },
+                                };
+                                const countByStatus = appointments.reduce((acc, a) => {
+                                    acc[a.status] = (acc[a.status] || 0) + 1; return acc;
+                                }, {});
+                                const upcoming = appointments.filter(a => new Date(a.start_time) >= new Date() && a.status === 'pendente');
+                                const nextAppt = upcoming[0];
+
+                                return (
+                                    <div className="mt-4 pt-4 border-t border-stone-100">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Agendamentos</p>
+                                            <div className="flex items-center gap-2">
+                                                {Object.entries(countByStatus).map(([st, cnt]) => {
+                                                    const cfg = statusCfg[st] ?? { cls: 'bg-stone-50 border-stone-200 text-stone-500', icon: 'event' };
+                                                    return (
+                                                        <span key={st} className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.cls}`}>
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{cfg.icon}</span>
+                                                            {cnt} {st}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {nextAppt && (
+                                            <div className="mb-3 flex items-center gap-3 px-4 py-3 bg-[#466250]/5 border border-[#466250]/20 rounded-xl">
+                                                <span className="material-symbols-outlined text-[#466250]" style={{ fontSize: 20 }}>event_upcoming</span>
+                                                <div>
+                                                    <p className="text-xs text-stone-400 font-medium">Próximo treino</p>
+                                                    <p className="text-sm font-bold text-stone-800">
+                                                        {new Date(nextAppt.start_time).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                        {' · '}
+                                                        {new Date(nextAppt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 max-h-40 overflow-y-auto pr-1">
+                                            {appointments.map(a => {
+                                                const dt   = new Date(a.start_time);
+                                                const past = dt < new Date();
+                                                const cfg  = statusCfg[a.status] ?? { cls: 'bg-white border-stone-200 text-stone-500', icon: 'event' };
+                                                return (
+                                                    <div key={a.id} className={`rounded-xl border px-2 py-2 flex flex-col items-center gap-1 text-center ${past && a.status === 'pendente' ? 'bg-stone-50 border-stone-200 opacity-60' : cfg.cls}`}>
+                                                        <span className="text-[10px] font-bold uppercase text-stone-400">
+                                                            {dt.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                                                        </span>
+                                                        <span className="text-sm font-extrabold text-stone-700">
+                                                            {String(dt.getDate()).padStart(2, '0')}/{String(dt.getMonth() + 1).padStart(2, '0')}
+                                                        </span>
+                                                        <span className="text-[10px] text-stone-400">
+                                                            {dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {enrollment.notes && (
                                 <div className="mt-4 pt-4 border-t border-stone-100">
                                     <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Observações</p>
@@ -738,13 +1281,11 @@ function EnrollmentRow({ enrollment, paymentOptions, onEdit, onDelete }) {
 }
 
 /* ─── Página principal ─────────────────────────────────────────────────── */
-export default function MatriculasIndex({ enrollments: initialEnrollments, summary, filters, pilatesPackages, patients, paymentOptions, nextNumber }) {
+export default function MatriculasIndex({ enrollments: initialEnrollments, summary, filters, pilatesPackages, patients, paymentOptions, professionals, nextNumber }) {
     const [enrollments, setEnrollments] = useState(initialEnrollments);
     const [search, setSearch]           = useState(filters.search || '');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [status, setStatus]           = useState(filters.status || 'all');
-    const [newModal, setNewModal]       = useState(false);
-    const [newModalPatient, setNewModalPatient] = useState(null);
     const [editModal, setEditModal]     = useState(false);
     const [editTarget, setEditTarget]   = useState(null);
     const [deleteModal, setDeleteModal] = useState(false);
@@ -755,9 +1296,7 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
 
     useEffect(() => {
         if (filters.new_patient_id) {
-            const p = patients.find(x => x.id == filters.new_patient_id);
-            if (p) { setNewModalPatient(p); setNewModal(true); }
-            router.get(route('pilates.matriculas.index'), {}, { replace: true, preserveState: true });
+            router.visit(route('pilates.matriculas.create', { patient_id: filters.new_patient_id }));
         }
     }, []);
 
@@ -802,7 +1341,7 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
                     <h1 className="text-3xl font-extrabold tracking-tight text-[#466250] mb-1">Matrículas — Pilates</h1>
                     <p className="text-stone-500">Gerencie contratos, planos e mensalidades dos alunos.</p>
                 </div>
-                <button onClick={() => setNewModal(true)}
+                <button onClick={() => router.visit(route('pilates.matriculas.create'))}
                     className="bg-[#466250] text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-[#384f40] transition-all shadow-lg shadow-[#466250]/20 self-start md:self-auto">
                     <span className="material-symbols-outlined text-xl">add</span>
                     Nova Matrícula
@@ -900,24 +1439,14 @@ export default function MatriculasIndex({ enrollments: initialEnrollments, summa
                 </div>
             </div>
 
-            {/* Modal Nova Matrícula */}
-            <EnrollmentModal
-                show={newModal}
-                onClose={() => { setNewModal(false); setNewModalPatient(null); }}
-                pilatesPackages={pilatesPackages}
-                patients={patients}
-                paymentOptions={paymentOptions}
-                nextNumber={nextNumber}
-                onSaved={handleSaved}
-                preselectedPatient={newModalPatient}
-            />
-
             {/* Modal Editar */}
             <EditEnrollmentModal
                 show={editModal}
                 onClose={() => { setEditModal(false); setEditTarget(null); }}
                 enrollment={editTarget}
+                pilatesPackages={pilatesPackages}
                 paymentOptions={paymentOptions}
+                professionals={professionals}
                 onSaved={handleSaved}
             />
 

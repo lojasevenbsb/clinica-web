@@ -45,6 +45,7 @@ class PilatesEnrollmentController extends Controller
         $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count']);
         $patients        = Patient::orderBy('name')->get(['id', 'name', 'phone', 'email', 'cpf']);
         $paymentOptions  = PaymentOption::orderBy('name')->get(['id', 'name', 'group']);
+        $professionals   = Professional::orderBy('name')->get(['id', 'name']);
 
         $nextNumber = PilatesEnrollment::generateEnrollmentNumber();
 
@@ -62,7 +63,28 @@ class PilatesEnrollmentController extends Controller
             'pilatesPackages' => $pilatesPackages,
             'patients'       => $patients,
             'paymentOptions' => $paymentOptions,
+            'professionals'  => $professionals,
             'nextNumber'     => $nextNumber,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        $pilatesIds      = Specialty::whereRaw('LOWER(name) LIKE ?', ['%pilates%'])->pluck('id');
+        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count']);
+        $patients        = Patient::orderBy('name')->get(['id', 'name', 'phone', 'email', 'cpf']);
+        $paymentOptions  = PaymentOption::orderBy('name')->get(['id', 'name', 'group']);
+        $nextNumber      = PilatesEnrollment::generateEnrollmentNumber();
+
+        $professionals = Professional::orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('Pilates/Matriculas/Create', [
+            'pilatesPackages'      => $pilatesPackages,
+            'patients'             => $patients,
+            'paymentOptions'       => $paymentOptions,
+            'nextNumber'           => $nextNumber,
+            'preselectedPatientId' => $request->patient_id,
+            'professionals'        => $professionals,
         ]);
     }
 
@@ -121,6 +143,7 @@ class PilatesEnrollmentController extends Controller
     {
         $validated = $request->validate([
             'contract_number'    => 'nullable|string|max:60',
+            'package_id'         => 'nullable|exists:packages,id',
             'start_date'         => 'required|date',
             'end_date'           => 'nullable|date|after_or_equal:start_date',
             'price'              => 'required|numeric|min:0',
@@ -129,9 +152,28 @@ class PilatesEnrollmentController extends Controller
             'payment_type_id'    => 'nullable|exists:payment_options,id',
             'status'             => 'required|in:active,inactive,cancelled',
             'notes'              => 'nullable|string',
+            'installments'       => 'nullable|array',
+            'installments.*.numero'   => 'required|integer',
+            'installments.*.due_date' => 'required|date',
+            'installments.*.amount'   => 'required|numeric|min:0',
+            'installments.*.paid'     => 'boolean',
         ]);
 
-        $enrollment->update($validated);
+        $enrollment->update(\Illuminate\Support\Arr::except($validated, ['installments']));
+
+        if (array_key_exists('installments', $validated)) {
+            // Remove only unpaid installments and replace with new ones
+            $enrollment->installments()->where('paid', false)->delete();
+            foreach ($validated['installments'] as $inst) {
+                $enrollment->installments()->create([
+                    'numero'   => $inst['numero'],
+                    'due_date' => $inst['due_date'],
+                    'amount'   => $inst['amount'],
+                    'paid'     => $inst['paid'] ?? false,
+                    'paid_at'  => ($inst['paid'] ?? false) ? now()->toDateString() : null,
+                ]);
+            }
+        }
 
         return response()->json($this->formatEnrollment($enrollment->fresh()->load(['patient', 'package', 'installments', 'paymentMethod', 'paymentType'])));
     }
@@ -146,9 +188,10 @@ class PilatesEnrollmentController extends Controller
     {
         $validated = $request->validate([
             'slots'                => 'required|array|min:1',
-            'slots.*.day_of_week' => 'required|integer|between:0,6', // 0=Dom,1=Seg...6=Sáb (Carbon ISO: 1=Mon..7=Sun)
+            'slots.*.day_of_week' => 'required|integer|between:0,6',
             'slots.*.start_time'  => 'required|string|regex:/^\d{2}:\d{2}$/',
             'slots.*.duration'    => 'nullable|integer|min:15|max:240',
+            'professional_id'     => 'nullable|exists:professionals,id',
         ]);
 
         $enrollment->loadMissing('package');
@@ -161,26 +204,32 @@ class PilatesEnrollmentController extends Controller
             ], 422);
         }
 
-        $professionalId = Professional::whereHas('specialties', function ($q) use ($specialtyId) {
-            $q->where('specialties.id', $specialtyId);
-        })->orderBy('id')->value('id');
+        // Usa o profissional escolhido ou busca automaticamente pela especialidade
+        if (!empty($validated['professional_id'])) {
+            $professionalId = $validated['professional_id'];
+        } else {
+            $professionalId = Professional::whereHas('specialties', function ($q) use ($specialtyId) {
+                $q->where('specialties.id', $specialtyId);
+            })->orderBy('id')->value('id');
 
-        if (!$professionalId) {
-            return response()->json([
-                'message' => 'Nao existe profissional vinculado a especialidade selecionada.',
-            ], 422);
+            if (!$professionalId) {
+                return response()->json([
+                    'message' => 'Nao existe profissional vinculado a especialidade selecionada.',
+                ], 422);
+            }
         }
 
         $startDate = $enrollment->start_date ?? Carbon::today();
         $endDate   = $enrollment->end_date   ?? $startDate->copy()->addMonth();
 
-        // Map JS day (0=Dom,1=Seg..6=Sáb) to Carbon dayOfWeek (0=Dom,1=Seg..6=Sáb)
-        $created = 0;
+        // 1. Pré-calcula todos os slots e verifica conflitos antes de criar qualquer agendamento
+        $toCreate   = [];
+        $conflicts  = [];
+
         foreach ($validated['slots'] as $slot) {
             $dayOfWeek = (int) $slot['day_of_week'];
             $duration  = (int) ($slot['duration'] ?? 60);
 
-            // Find first occurrence on or after start_date
             $current = $startDate->copy();
             while ($current->dayOfWeek !== $dayOfWeek) {
                 $current->addDay();
@@ -191,22 +240,79 @@ class PilatesEnrollmentController extends Controller
                 $startDt = $current->copy()->setTime((int)$h, (int)$m);
                 $endDt   = $startDt->copy()->addMinutes($duration);
 
-                Appointment::create([
-                    'professional_id' => $professionalId,
-                    'patient_id'  => $enrollment->patient_id,
-                    'specialty_id' => $specialtyId,
-                    'start_time'  => $startDt,
-                    'end_time'    => $endDt,
-                    'status'      => 'pendente',
-                    'notes'       => 'Pilates - Mat. ' . $enrollment->enrollment_number,
-                ]);
+                // Verifica sobreposição: outro agendamento do profissional que não seja cancelado
+                $conflict = Appointment::where('professional_id', $professionalId)
+                    ->whereNotIn('status', ['cancelado', 'cancelled'])
+                    ->where('start_time', '<', $endDt)
+                    ->where('end_time',   '>', $startDt)
+                    ->first();
 
-                $created++;
+                if ($conflict) {
+                    $conflicts[] = [
+                        'data'   => $startDt->translatedFormat('D, d/m/Y'),
+                        'inicio' => $startDt->format('H:i'),
+                        'fim'    => $endDt->format('H:i'),
+                    ];
+                } else {
+                    $toCreate[] = [
+                        'start' => $startDt,
+                        'end'   => $endDt,
+                    ];
+                }
+
                 $current->addWeek();
             }
         }
 
+        // 2. Se houver qualquer conflito, retorna erro com a lista de datas bloqueadas
+        if (!empty($conflicts)) {
+            $profissional = Professional::find($professionalId);
+            $nome = $profissional?->name ?? 'O profissional';
+
+            $linhas = array_map(
+                fn($c) => "{$c['data']} das {$c['inicio']} às {$c['fim']}",
+                array_slice($conflicts, 0, 5)
+            );
+
+            $extra = count($conflicts) > 5 ? ' (e mais ' . (count($conflicts) - 5) . ' conflito(s))' : '';
+
+            return response()->json([
+                'message'   => "{$nome} não tem disponibilidade nos seguintes horários:\n" . implode("\n", $linhas) . $extra,
+                'conflicts' => $conflicts,
+            ], 422);
+        }
+
+        // 3. Nenhum conflito — cria todos os agendamentos
+        $created = 0;
+        foreach ($toCreate as $slot) {
+            Appointment::create([
+                'professional_id' => $professionalId,
+                'patient_id'      => $enrollment->patient_id,
+                'specialty_id'    => $specialtyId,
+                'start_time'      => $slot['start'],
+                'end_time'        => $slot['end'],
+                'status'          => 'pendente',
+                'notes'           => 'Pilates - Mat. ' . $enrollment->enrollment_number,
+            ]);
+            $created++;
+        }
+
         return response()->json(['created' => $created]);
+    }
+
+    public function appointments(PilatesEnrollment $enrollment)
+    {
+        $appointments = Appointment::where('patient_id', $enrollment->patient_id)
+            ->where('notes', 'like', '%Mat. ' . $enrollment->enrollment_number . '%')
+            ->orderBy('start_time')
+            ->get(['id', 'start_time', 'end_time', 'status']);
+
+        return response()->json($appointments->map(fn($a) => [
+            'id'         => $a->id,
+            'start_time' => $a->start_time?->toDateTimeString(),
+            'end_time'   => $a->end_time?->toDateTimeString(),
+            'status'     => $a->status,
+        ]));
     }
 
     public function toggleInstallment(PilatesEnrollmentInstallment $installment)
@@ -341,6 +447,8 @@ class PilatesEnrollmentController extends Controller
             'notes'              => $e->notes,
             'payment_method'     => $e->paymentMethod?->name,
             'payment_type'       => $e->paymentType?->name,
+            'payment_method_id'  => $e->payment_method_id,
+            'payment_type_id'    => $e->payment_type_id,
             'patient'            => $e->patient ? ['id' => $e->patient->id, 'name' => $e->patient->name, 'phone' => $e->patient->phone, 'email' => $e->patient->email] : null,
             'package'            => $e->package ? ['id' => $e->package->id, 'name' => $e->package->name] : null,
             'installments'       => $e->installments->map(fn($i) => [

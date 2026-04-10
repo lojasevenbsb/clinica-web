@@ -30,18 +30,18 @@ export default function AuthenticatedLayout({ header, children }) {
                             <span className="font-manrope body-md">Início</span>
                         </Link>
                         <Link
-                            href={route('patients.index')}
-                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('patients.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
-                        >
-                            <span className="material-symbols-outlined">groups</span>
-                            <span className="font-manrope body-md">Cadastros</span>
-                        </Link>
-                        <Link
                             href={route('agenda')}
                             className={`flex items-center gap-3 px-4 py-3 ease-out duration-200 rounded-lg ${isAgenda ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
                         >
                             <span className="material-symbols-outlined" style={isAgenda ? { fontVariationSettings: "'FILL' 1" } : {}}>calendar_month</span>
                             <span className="font-manrope body-md">Agenda</span>
+                        </Link>
+                        <Link
+                            href={route('patients.index')}
+                            className={`flex items-center gap-3 px-4 py-3 text-stone-600 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800 ease-out duration-200 rounded-lg ${route().current('patients.*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : ''}`}
+                        >
+                            <span className="material-symbols-outlined">groups</span>
+                            <span className="font-manrope body-md">Cadastros</span>
                         </Link>
                         {/* Pilates (menu colapsável) */}
                         <button

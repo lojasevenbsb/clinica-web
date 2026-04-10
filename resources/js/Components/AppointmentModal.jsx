@@ -472,25 +472,6 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <InputError message={errors.specialty_id} className="mt-2" />
                         </div>
 
-                        {selectedSpecialty?.subgroups?.length > 0 && (
-                            <div>
-                                <InputLabel value="Subgrupo" />
-                                <select
-                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
-                                    value={data.specialty_subgroup_id}
-                                    onChange={(e) => setData('specialty_subgroup_id', e.target.value)}
-                                    required
-                                >
-                                    <option value="">Selecionar Subgrupo</option>
-                                    {selectedSpecialty.subgroups.map(sg => (
-                                        <option key={sg.id} value={sg.id}>
-                                            {sg.name}{sg.duration_minutes ? ` (${Math.floor(sg.duration_minutes/60) > 0 ? Math.floor(sg.duration_minutes/60)+'h ' : ''}${sg.duration_minutes%60 > 0 ? sg.duration_minutes%60+'min' : ''})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={errors.specialty_subgroup_id} className="mt-2" />
-                            </div>
-                        )}
 
                         {siblings.length > 0 && (
                             <div className="col-span-full rounded-2xl border border-primary/20 bg-primary/5 p-4">

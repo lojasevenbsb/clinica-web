@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npx vite:*)",
       "Bash(php -r \"require 'vendor/autoload.php'; echo 'OK';\")",
-      "Read(//c/Users/Omniduck/.claude/projects/c--Projetos-Clinica/memory/**)"
+      "Read(//c/Users/Omniduck/.claude/projects/c--Projetos-Clinica/memory/**)",
+      "Bash(netstat -ano)",
+      "Bash(sc query:*)",
+      "Bash(tasklist)",
+      "Bash(net start:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Omniduck\\.claude\\projects\\c--Projetos-Clinica\\memory"

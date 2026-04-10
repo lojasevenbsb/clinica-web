@@ -472,6 +472,22 @@ export default function AppointmentModal({ show, onClose, professionals, patient
                             <InputError message={errors.specialty_id} className="mt-2" />
                         </div>
 
+                        {selectedSpecialty?.subgroups?.length > 0 && (
+                            <div>
+                                <InputLabel value="Subgrupo" />
+                                <select
+                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
+                                    value={data.specialty_subgroup_id}
+                                    onChange={(e) => setData('specialty_subgroup_id', e.target.value)}
+                                >
+                                    <option value="">Selecionar Subgrupo</option>
+                                    {selectedSpecialty.subgroups.map(sg => (
+                                        <option key={sg.id} value={sg.id}>{sg.name}</option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.specialty_subgroup_id} className="mt-2" />
+                            </div>
+                        )}
 
                         {siblings.length > 0 && (
                             <div className="col-span-full rounded-2xl border border-primary/20 bg-primary/5 p-4">
@@ -587,54 +603,6 @@ export default function AppointmentModal({ show, onClose, professionals, patient
 
                     {data.specialty_id && !appointment && (
                         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-4">
-                            {/* Contrato do paciente */}
-                            <div>
-                                <p className="text-xs font-semibold text-stone-500 mb-2 uppercase tracking-wide">Contrato</p>
-                                <select
-                                    className="w-full mt-1 border-stone-200 dark:border-stone-800 dark:bg-stone-900 rounded-xl shadow-sm focus:border-primary focus:ring-primary"
-                                    value={data.patient_package_id}
-                                    onChange={(e) => setData('patient_package_id', e.target.value)}
-                                    disabled={!data.patient_id || patientPlans.length === 0}
-                                >
-                                    <option value="">
-                                        {!data.patient_id
-                                            ? 'Selecione um paciente primeiro'
-                                            : patientPlans.length === 0
-                                                ? 'Nenhum plano para esta especialidade'
-                                                : 'Sem plano'}
-                                    </option>
-                                    {patientPlans.map(pp => (
-                                        <option key={pp.id} value={String(pp.id)}>
-                                            {`${pp.package.name} | Início: ${formatContractDate(pp.start_date)} | Término: ${pp.end_date ? formatContractDate(pp.end_date) : 'Sem término'}`}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={errors.patient_package_id} className="mt-1" />
-
-                                {selectedPatientPlan && (
-                                    <div className="grid grid-cols-2 gap-3 mt-3">
-                                        <div>
-                                            <InputLabel value="Data de Início" />
-                                            <TextInput
-                                                type="date"
-                                                className="w-full mt-1"
-                                                value={selectedPatientPlan.start_date ? String(selectedPatientPlan.start_date).substring(0, 10) : ''}
-                                                readOnly
-                                            />
-                                        </div>
-                                        <div>
-                                            <InputLabel value="Data de Término" />
-                                            <TextInput
-                                                type="date"
-                                                className="w-full mt-1"
-                                                value={selectedPatientPlan.end_date ? String(selectedPatientPlan.end_date).substring(0, 10) : ''}
-                                                readOnly
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
                             {isPilates && (<>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">

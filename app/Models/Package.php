@@ -10,6 +10,7 @@ class Package extends Model
         'specialty_id',
         'name',
         'session_count',
+        'sessions_per_week',
         'price',
         'duration_months',
         'duration_value',

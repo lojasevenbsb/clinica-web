@@ -75,6 +75,13 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.frequencia*') ? { fontVariationSettings: "'FILL' 1" } : {}}>how_to_reg</span>
                                     <span className="font-manrope text-sm">Controle de Frequência</span>
                                 </Link>
+                                <Link
+                                    href={route('pilates.planos.index')}
+                                    className={`flex items-center gap-3 px-4 py-2.5 ease-out duration-200 rounded-lg ${route().current('pilates.planos*') ? 'bg-[#466250]/10 text-[#466250] font-bold' : 'text-stone-500 hover:text-[#466250] hover:bg-stone-50 dark:hover:bg-stone-800'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[20px]" style={route().current('pilates.planos*') ? { fontVariationSettings: "'FILL' 1" } : {}}>package_2</span>
+                                    <span className="font-manrope text-sm">Configuração de Planos</span>
+                                </Link>
                             </div>
                         )}
                         <Link

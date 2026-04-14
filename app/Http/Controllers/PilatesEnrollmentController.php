@@ -42,7 +42,7 @@ class PilatesEnrollmentController extends Controller
         $enrollments = $query->orderBy('created_at', 'desc')->get();
 
         $pilatesIds      = Specialty::whereRaw('LOWER(name) LIKE ?', ['%pilates%'])->pluck('id');
-        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count']);
+        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count', 'sessions_per_week', 'duration_value', 'duration_unit']);
         $patients        = Patient::orderBy('name')->get(['id', 'name', 'phone', 'email', 'cpf']);
         $paymentOptions  = PaymentOption::orderBy('name')->get(['id', 'name', 'group']);
         $professionals   = Professional::orderBy('name')->get(['id', 'name']);
@@ -71,7 +71,7 @@ class PilatesEnrollmentController extends Controller
     public function create(Request $request)
     {
         $pilatesIds      = Specialty::whereRaw('LOWER(name) LIKE ?', ['%pilates%'])->pluck('id');
-        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count']);
+        $pilatesPackages = Package::whereIn('specialty_id', $pilatesIds)->orderBy('name')->get(['id', 'name', 'price', 'session_count', 'sessions_per_week', 'duration_value', 'duration_unit']);
         $patients        = Patient::orderBy('name')->get(['id', 'name', 'phone', 'email', 'cpf']);
         $paymentOptions  = PaymentOption::orderBy('name')->get(['id', 'name', 'group']);
         $nextNumber      = PilatesEnrollment::generateEnrollmentNumber();
@@ -450,7 +450,7 @@ class PilatesEnrollmentController extends Controller
             'payment_method_id'  => $e->payment_method_id,
             'payment_type_id'    => $e->payment_type_id,
             'patient'            => $e->patient ? ['id' => $e->patient->id, 'name' => $e->patient->name, 'phone' => $e->patient->phone, 'email' => $e->patient->email] : null,
-            'package'            => $e->package ? ['id' => $e->package->id, 'name' => $e->package->name] : null,
+            'package'            => $e->package ? ['id' => $e->package->id, 'name' => $e->package->name, 'sessions_per_week' => $e->package->sessions_per_week] : null,
             'installments'       => $e->installments->map(fn($i) => [
                 'id'       => $i->id,
                 'numero'   => $i->numero,

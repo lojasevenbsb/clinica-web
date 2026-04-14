@@ -189,9 +189,12 @@ export default function MatriculaCreate({ pilatesPackages, patients, paymentOpti
         return dates;
     };
 
+    const maxDaysPerWeek = savedEnrollment?.package?.sessions_per_week ?? null;
+
     const toggleScheduleDay = (day) => {
         setScheduleSlots(prev => {
             if (prev[day]) { const next = { ...prev }; delete next[day]; return next; }
+            if (maxDaysPerWeek !== null && Object.keys(prev).length >= maxDaysPerWeek) return prev;
             return { ...prev, [day]: { time: '08:00', duration: 60, repeat: '' } };
         });
     };
@@ -424,16 +427,34 @@ export default function MatriculaCreate({ pilatesPackages, patients, paymentOpti
                                         value={data.package_id}
                                         onChange={e => {
                                             const pkg = pilatesPackages.find(p => p.id == e.target.value);
-                                            setDataState(prev => ({
-                                                ...prev,
-                                                package_id: e.target.value,
-                                                price: pkg?.price != null ? pkg.price : prev.price,
-                                            }));
+                                            setDataState(prev => {
+                                                let end_date = prev.end_date;
+                                                if (pkg?.duration_value && pkg?.duration_unit && prev.start_date) {
+                                                    const start = new Date(prev.start_date + 'T00:00:00');
+                                                    const v = parseInt(pkg.duration_value);
+                                                    if (pkg.duration_unit === 'days') {
+                                                        start.setDate(start.getDate() + v);
+                                                    } else if (pkg.duration_unit === 'weeks') {
+                                                        start.setDate(start.getDate() + v * 7);
+                                                    } else {
+                                                        start.setMonth(start.getMonth() + v);
+                                                    }
+                                                    end_date = start.toISOString().split('T')[0];
+                                                }
+                                                return {
+                                                    ...prev,
+                                                    package_id: e.target.value,
+                                                    price: pkg?.price != null ? pkg.price : prev.price,
+                                                    end_date,
+                                                };
+                                            });
                                         }}
                                     >
                                         <option value="">— Sem plano vinculado —</option>
                                         {pilatesPackages.map(pkg => (
-                                            <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
+                                            <option key={pkg.id} value={pkg.id}>
+                                                {pkg.name}{pkg.sessions_per_week != null ? ` — ${pkg.sessions_per_week}x/semana` : ''}
+                                            </option>
                                         ))}
                                     </select>
                                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 20 }}>expand_more</span>
@@ -764,6 +785,9 @@ export default function MatriculaCreate({ pilatesPackages, patients, paymentOpti
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-0.5">Plano contratado</p>
                                 <p className="font-bold text-stone-800">{savedEnrollment.package.name}</p>
+                                {savedEnrollment.package.sessions_per_week != null && (
+                                    <p className="text-xs text-stone-500 mt-0.5">{savedEnrollment.package.sessions_per_week}x por semana</p>
+                                )}
                             </div>
                             {savedEnrollment?.price && (
                                 <div className="text-right flex-shrink-0">
@@ -871,7 +895,12 @@ export default function MatriculaCreate({ pilatesPackages, patients, paymentOpti
                             <div>
                                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">
                                     Dias da semana
-                                    {Object.keys(scheduleSlots).length > 0 && (
+                                    {maxDaysPerWeek !== null && (
+                                        <span className="ml-2 normal-case font-normal text-stone-400">
+                                            — {Object.keys(scheduleSlots).length}/{maxDaysPerWeek} dia{maxDaysPerWeek > 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                    {maxDaysPerWeek === null && Object.keys(scheduleSlots).length > 0 && (
                                         <span className="ml-2 normal-case font-normal text-[#466250]">
                                             — {Object.keys(scheduleSlots).length} dia{Object.keys(scheduleSlots).length > 1 ? 's' : ''} selecionado{Object.keys(scheduleSlots).length > 1 ? 's' : ''}
                                         </span>
@@ -880,15 +909,20 @@ export default function MatriculaCreate({ pilatesPackages, patients, paymentOpti
                                 <div className="grid grid-cols-7 gap-2">
                                     {DAYS.map(d => {
                                         const active = !!scheduleSlots[d.value];
+                                        const limitReached = maxDaysPerWeek !== null && Object.keys(scheduleSlots).length >= maxDaysPerWeek && !active;
                                         return (
                                             <button
                                                 key={d.value}
                                                 type="button"
                                                 onClick={() => toggleScheduleDay(d.value)}
+                                                disabled={limitReached}
+                                                title={limitReached ? `Limite de ${maxDaysPerWeek}x/semana atingido` : undefined}
                                                 className={`py-3 rounded-xl text-sm font-bold transition-all border-2 ${
                                                     active
                                                         ? 'bg-[#466250] text-white border-[#466250] shadow-md shadow-[#466250]/20'
-                                                        : 'bg-white text-stone-500 border-stone-200 hover:border-[#466250]/40 hover:text-[#466250]'
+                                                        : limitReached
+                                                            ? 'bg-stone-50 text-stone-300 border-stone-100 cursor-not-allowed'
+                                                            : 'bg-white text-stone-500 border-stone-200 hover:border-[#466250]/40 hover:text-[#466250]'
                                                 }`}
                                             >
                                                 {d.label}

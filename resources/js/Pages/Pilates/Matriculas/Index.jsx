@@ -685,7 +685,11 @@ function EditEnrollmentModal({ show, onClose, enrollment, pilatesPackages, payme
                                         }}
                                     >
                                         <option value="">— Sem plano vinculado —</option>
-                                        {pilatesPackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        {pilatesPackages.map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name}{p.sessions_per_week != null ? ` — ${p.sessions_per_week}x/semana` : ''}
+                                            </option>
+                                        ))}
                                     </select>
                                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" style={{ fontSize: 18 }}>expand_more</span>
                                 </div>

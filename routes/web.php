@@ -46,6 +46,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/pilates/matriculas/{enrollment}/schedule', [PilatesEnrollmentController::class, 'schedule'])->name('pilates.matriculas.schedule');
     Route::get('/pilates/matriculas/{enrollment}/appointments', [PilatesEnrollmentController::class, 'appointments'])->name('pilates.matriculas.appointments');
     Route::get('/pilates/planos', [PilatesPackageController::class, 'index'])->name('pilates.planos.index');
+    Route::post('/pilates/planos/save', [PilatesPackageController::class, 'savePlans'])->name('pilates.planos.savePlans');
     Route::post('/pilates/planos/matriz', [PilatesPackageController::class, 'saveMatrix'])->name('pilates.planos.saveMatrix');
     Route::delete('/pilates/planos/{package}', [PilatesPackageController::class, 'destroy'])->name('pilates.planos.destroy');
     Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');

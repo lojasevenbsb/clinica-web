@@ -82,6 +82,49 @@ class PilatesPackageController extends Controller
         return back();
     }
 
+    public function savePlans(Request $request)
+    {
+        $validated = $request->validate([
+            'specialty_id'                              => 'required|exists:specialties,id',
+            'plans'                                     => 'required|array',
+            'plans.*.name'                              => 'required|string|max:255',
+            'plans.*.duration_value'                    => 'required|integer|min:1',
+            'plans.*.duration_unit'                     => 'required|in:days,weeks,months',
+            'plans.*.frequencies'                       => 'required|array|min:1',
+            'plans.*.frequencies.*.sessions_per_week'   => 'required|integer|min:1|max:7',
+            'plans.*.frequencies.*.price'               => 'required|numeric|min:0',
+        ]);
+
+        $specialtyId = $validated['specialty_id'];
+        $keptIds = [];
+
+        foreach ($validated['plans'] as $plan) {
+            foreach ($plan['frequencies'] as $freq) {
+                $pkg = Package::updateOrCreate(
+                    [
+                        'specialty_id'      => $specialtyId,
+                        'name'              => $plan['name'],
+                        'duration_value'    => $plan['duration_value'],
+                        'duration_unit'     => $plan['duration_unit'],
+                        'sessions_per_week' => $freq['sessions_per_week'],
+                    ],
+                    [
+                        'price'         => $freq['price'],
+                        'session_count' => 0,
+                    ]
+                );
+                $keptIds[] = $pkg->id;
+            }
+        }
+
+        // Remove packages for this specialty that were not in the submitted list
+        Package::where('specialty_id', $specialtyId)
+            ->whereNotIn('id', $keptIds)
+            ->delete();
+
+        return redirect()->route('pilates.planos.index');
+    }
+
     public function destroy(Package $package)
     {
         $package->delete();

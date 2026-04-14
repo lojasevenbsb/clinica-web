@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import AppointmentModal from '@/Components/AppointmentModal';
 import { format, addDays, subDays, startOfWeek, isSameDay, parseISO, startOfMonth, endOfMonth, addMonths, subMonths, getDaysInMonth, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
@@ -10,11 +11,161 @@ import { ptBR } from 'date-fns/locale/pt-BR';
 ───────────────────────────────────────── */
 function statusStyle(status) {
     switch (status) {
-        case 'confirmado': return { label: 'Confirmado', bg: 'bg-emerald-500', text: 'text-white' };
-        case 'cancelado':  return { label: 'Cancelado',  bg: 'bg-red-500',     text: 'text-white' };
-        case 'atendido':   return { label: 'Atendido',   bg: 'bg-blue-500',    text: 'text-white' };
-        default:           return { label: 'Pendente',   bg: 'bg-amber-400',   text: 'text-white' };
+        case 'confirmado': return { label: 'Confirmado', bg: 'bg-emerald-500', text: 'text-white', color: '#10b981' };
+        case 'cancelado':  return { label: 'Cancelado',  bg: 'bg-red-400',     text: 'text-white', color: '#f87171' };
+        case 'atendido':   return { label: 'Atendido',   bg: 'bg-sky-500',     text: 'text-white', color: '#0ea5e9' };
+        default:           return { label: 'Pendente',   bg: 'bg-amber-400',   text: 'text-white', color: '#fbbf24' };
     }
+}
+
+/* ─────────────────────────────────────────
+   Status options
+───────────────────────────────────────── */
+const STATUS_OPTIONS = [
+    { value: 'pendente',   label: 'Pendente',   bg: '#fbbf24', text: '#fff' },
+    { value: 'confirmado', label: 'Confirmado', bg: '#10b981', text: '#fff' },
+    { value: 'atendido',   label: 'Atendido',   bg: '#0ea5e9', text: '#fff' },
+    { value: 'cancelado',  label: 'Cancelado',  bg: '#f87171', text: '#fff' },
+];
+
+/* ─────────────────────────────────────────
+   Appointment Card (with inline status change)
+───────────────────────────────────────── */
+function AppointmentCard({ app, specColor, isCanceled, cardHeight, onEdit, onDelete }) {
+    const [statusOpen, setStatusOpen] = useState(false);
+    const [currentStatus, setCurrentStatus] = useState(app.status || 'pendente');
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+    const footerRef = useRef(null);
+
+    const { label, color: sColor } = statusStyle(currentStatus);
+
+    // Sync when server re-renders with updated app.status
+    useEffect(() => {
+        setCurrentStatus(app.status || 'pendente');
+    }, [app.status]);
+
+    const handleStatusChange = (newStatus) => {
+        setCurrentStatus(newStatus);
+        setStatusOpen(false);
+        router.patch(route('appointments.updateStatus', app.id), { status: newStatus }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const openDropdown = useCallback(() => {
+        if (footerRef.current) {
+            const rect = footerRef.current.getBoundingClientRect();
+            setDropdownPos({
+                top: rect.top,        // dropdown abre acima do botão
+                left: rect.left,
+                width: rect.width,
+            });
+        }
+        setStatusOpen(o => !o);
+    }, []);
+
+    // Fecha ao clicar fora
+    useEffect(() => {
+        if (!statusOpen) return;
+        const close = (e) => {
+            if (footerRef.current && !footerRef.current.contains(e.target)) {
+                setStatusOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [statusOpen]);
+
+    const DROPDOWN_HEIGHT = STATUS_OPTIONS.length * 36; // aprox px por opção
+
+    return (
+        <div
+            className={`flex-1 rounded-xl flex flex-col overflow-hidden shadow-sm group transition-shadow hover:shadow-md relative ${isCanceled ? 'opacity-50' : ''}`}
+            style={{
+                height: cardHeight,
+                background: '#ffffff',
+                border: `1px solid ${specColor}30`,
+                borderLeft: `4px solid ${specColor}`,
+            }}
+        >
+            {/* Card body */}
+            <div className="flex-1 px-2.5 pt-2 pb-1 flex flex-col gap-0.5 min-h-0 overflow-hidden" style={{ background: specColor + '09' }}>
+                {/* Name + actions */}
+                <div className="flex items-start justify-between gap-1">
+                    <span className="text-[12px] font-black text-gray-800 leading-tight truncate">{app.patient.name}</span>
+                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button
+                            onClick={onEdit}
+                            className="p-0.5 rounded hover:bg-black/5 text-gray-400 hover:text-gray-700 transition-colors"
+                            title="Editar"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>edit</span>
+                        </button>
+                        <button
+                            onClick={onDelete}
+                            className="p-0.5 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                            title="Excluir"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 12 }}>delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Time */}
+                <span className="text-[10px] font-semibold text-gray-400 tabular-nums leading-none">
+                    {format(parseISO(app.start_time), 'HH:mm')} – {format(parseISO(app.end_time), 'HH:mm')}
+                </span>
+            </div>
+
+            {/* Status footer — clicável para trocar */}
+            <div ref={footerRef} className="flex-shrink-0">
+                <button
+                    onClick={openDropdown}
+                    className="w-full flex items-center justify-between gap-1 px-2 py-1 hover:opacity-90 transition-opacity"
+                    style={{ background: sColor, color: '#fff' }}
+                    title="Alterar status"
+                >
+                    <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/50 flex-shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-widest truncate">{label}</span>
+                    </div>
+                    <span className="material-symbols-outlined text-white/70 flex-shrink-0" style={{ fontSize: 12 }}>
+                        {statusOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                </button>
+
+                {/* Dropdown via portal — escapa de qualquer overflow:hidden */}
+                {statusOpen && createPortal(
+                    <div
+                        className="fixed z-[9999] rounded-xl overflow-hidden shadow-xl border border-gray-100"
+                        style={{
+                            top: dropdownPos.top - DROPDOWN_HEIGHT - 4,
+                            left: dropdownPos.left,
+                            width: dropdownPos.width,
+                            background: '#fff',
+                        }}
+                    >
+                        {STATUS_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleStatusChange(opt.value)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                                style={{ color: '#374151' }}
+                            >
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: opt.bg }} />
+                                <span className="text-[12px] font-bold flex-1">{opt.label}</span>
+                                {currentStatus === opt.value && (
+                                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: opt.bg }}>check</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>,
+                    document.body
+                )}
+            </div>
+        </div>
+    );
 }
 
 /* ─────────────────────────────────────────
@@ -174,49 +325,65 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
         : null;
 
     return (
-        <div className="mt-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm">
+        <div className="mt-4 rounded-2xl overflow-hidden shadow-sm border border-outline-variant/20" style={{ background: '#f8f9fb' }}>
             {/* Header row — professional names */}
-            <div className="flex border-b-2 border-outline-variant/30 bg-surface-container sticky top-0 z-20">
-                <div className="w-20 flex-shrink-0 flex items-center justify-center px-2 py-3 border-r border-outline-variant/30">
-                    <span className="text-[10px] font-bold text-outline uppercase tracking-widest">Hora</span>
+            <div className="flex border-b border-outline-variant/20 sticky top-0 z-20" style={{ background: '#ffffff' }}>
+                {/* Hour column header */}
+                <div className="w-[72px] flex-shrink-0 flex items-center justify-center border-r border-outline-variant/15" style={{ background: '#f3f4f6', minHeight: 72 }}>
+                    <span className="material-symbols-outlined text-outline/40" style={{ fontSize: 18 }}>schedule</span>
                 </div>
-                {workingProfs.map(prof => (
-                    <div key={prof.id} className="flex-1 min-w-0 px-3 py-3 flex flex-col items-center gap-1 border-r border-outline-variant/30 last:border-r-0">
+
+                {workingProfs.map((prof, idx) => {
+                    const color = prof.color || '#6366f1';
+                    const isOpen = prof.day_hours?.is_open;
+                    return (
                         <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                            style={{ backgroundColor: (prof.color || '#6366f1') + '33', color: prof.color || '#6366f1' }}
+                            key={prof.id}
+                            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-4 px-2 border-r border-outline-variant/15 last:border-r-0 relative"
+                            style={{ borderTop: `3px solid ${isOpen ? color : '#d1d5db'}` }}
                         >
-                            {prof.name.charAt(0)}
+                            {/* Avatar */}
+                            <div
+                                className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm"
+                                style={{ background: color + '22', color }}
+                            >
+                                {prof.name.charAt(0).toUpperCase()}
+                            </div>
+
+                            {/* Name */}
+                            <span className="text-[13px] font-bold text-gray-800 text-center leading-tight truncate w-full text-center px-1">
+                                {prof.nickname || prof.name}
+                            </span>
+
+                            {/* Hours or badge */}
+                            {isOpen ? (
+                                <span className="text-[11px] font-semibold text-gray-400">
+                                    {prof.day_hours.open_time.substring(0, 5)} – {prof.day_hours.close_time.substring(0, 5)}
+                                </span>
+                            ) : (
+                                <span className="text-[10px] font-bold text-red-400 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                    Não atende hoje
+                                </span>
+                            )}
                         </div>
-                        <span className="text-xs font-bold text-on-surface text-center truncate w-full text-center">{prof.nickname || prof.name}</span>
-                        <span className="text-sm text-outline">
-                            {prof.day_hours?.is_open
-                                ? `${prof.day_hours.open_time.substring(0, 5)}–${prof.day_hours.close_time.substring(0, 5)}`
-                                : <span className="text-xs text-red-400 font-semibold">Não atende</span>
-                            }
-                        </span>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
-            {/* Body with time rows + current-time bar */}
+            {/* Body */}
             <div className="relative overflow-x-auto">
-                {/* Red current-time bar */}
+                {/* Current time bar */}
                 {timeBarTop !== null && (
                     <div
                         className="absolute left-0 right-0 z-10 flex items-center pointer-events-none"
                         style={{ top: timeBarTop }}
                     >
-                        <div className="w-20 flex-shrink-0 flex items-center justify-end pr-2">
-                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200">
+                        <div className="w-[72px] flex-shrink-0 flex items-center justify-center">
+                            <span className="text-[11px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm shadow-red-200">
                                 {nowH.toString().padStart(2, '0')}:{nowM.toString().padStart(2, '0')}
                             </span>
                         </div>
-                        <div className="h-0.5 flex-1 bg-red-500 opacity-70" />
-                        <div
-                            className="absolute w-2.5 h-2.5 rounded-full bg-red-500"
-                            style={{ left: 'calc(80px - 5px)' }}
-                        />
+                        <div className="h-[2px] flex-1 bg-red-500 opacity-80" />
                     </div>
                 )}
 
@@ -225,25 +392,29 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                     const coveredPerProf = {};
                     return slots.map(({ hour: h, minute: m }) => {
                     const slotAbsMin = h * 60 + m;
-                    // Check if all working profs have this slot covered — if so, skip row entirely
-                    // We'll handle per-prof coverage inside each cell
+                    const isHourMark = m === 0;
                     return (
                     <div
                         key={`${h}-${m}`}
-                        className="flex border-b border-outline-variant/20 last:border-b-0"
-                        style={{ minHeight: SLOT_HEIGHT }}
+                        className="flex last:border-b-0"
+                        style={{
+                            height: SLOT_HEIGHT,
+                            borderBottom: isHourMark ? '1px solid rgba(0,0,0,0.07)' : '1px solid rgba(0,0,0,0.03)',
+                        }}
                     >
                         {/* Time label */}
-                        <div className="w-20 flex-shrink-0 flex flex-col items-end justify-start border-r border-outline-variant/20 bg-surface-container-low/40" style={{ paddingTop: 8, paddingRight: 6 }}>
-                            <span className={`font-bold text-primary self-center ${slotInterval < 60 ? 'text-xs' : 'text-sm'}`} style={{ paddingRight: 6 }}>
-                                {h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}
-                            </span>
-                            {slotInterval === 60 && (
-                                <div className="flex flex-col justify-around flex-1 w-full items-end" style={{ paddingTop: 4, paddingBottom: 4, paddingRight: 4 }}>
-                                    {[1,2,3,4,5].map(i => (
-                                        <div key={i} style={{ height: 1, background: 'rgba(114,121,115,0.5)', width: i === 3 ? 10 : 6 }} />
-                                    ))}
-                                </div>
+                        <div
+                            className="w-[72px] flex-shrink-0 flex items-start justify-end border-r border-outline-variant/15 select-none"
+                            style={{ background: '#f3f4f6', paddingTop: 8, paddingRight: 10 }}
+                        >
+                            {isHourMark ? (
+                                <span className="text-[12px] font-black text-indigo-500 tabular-nums">
+                                    {h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}
+                                </span>
+                            ) : (
+                                <span className="text-[10px] font-medium text-gray-300 tabular-nums">
+                                    {h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}
+                                </span>
                             )}
                         </div>
 
@@ -254,18 +425,19 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                             const slotAbsMin = h * 60 + m;
                             const isWorking  = profStartH !== null && slotAbsMin >= profStartH * 60 && slotAbsMin < profEndH * 60;
                             const apps       = appsByProfSlot[`${prof.id}-${h}-${m}`] || [];
+                            const profColor  = prof.color || '#6366f1';
 
-                            // Skip cell if covered by an ongoing appointment for this prof
                             if (coveredPerProf[prof.id] && slotAbsMin < coveredPerProf[prof.id]) {
                                 return (
                                     <div
                                         key={prof.id}
-                                        className="flex-1 min-w-0 p-1.5 border-r border-outline-variant/20 last:border-r-0"
+                                        className="flex-1 min-w-0 border-r border-outline-variant/10 last:border-r-0"
                                         aria-hidden="true"
+                                        style={{ background: '#ffffff' }}
                                     />
                                 );
                             }
-                            // Update coverage
+
                             apps.forEach(app => {
                                 const endMin = new Date(app.end_time).getHours() * 60 + new Date(app.end_time).getMinutes();
                                 if (!coveredPerProf[prof.id] || endMin > coveredPerProf[prof.id]) {
@@ -273,69 +445,59 @@ function AllProfessionalsGrid({ allProfessionalsHours, appointments, selectedDat
                                 }
                             });
 
+                            if (!isWorking) {
+                                return (
+                                    <div
+                                        key={prof.id}
+                                        className="flex-1 min-w-0 border-r border-outline-variant/10 last:border-r-0"
+                                        style={{
+                                            background: 'repeating-linear-gradient(135deg, #f9fafb 0px, #f9fafb 6px, #f3f4f6 6px, #f3f4f6 12px)',
+                                        }}
+                                    />
+                                );
+                            }
+
+                            if (apps.length === 0) {
+                                return (
+                                    <div
+                                        key={prof.id}
+                                        className="flex-1 min-w-0 border-r border-outline-variant/10 last:border-r-0 p-1.5 group cursor-pointer transition-colors"
+                                        style={{ background: '#ffffff' }}
+                                        onClick={() => onSlotClick(selectedDate, `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, prof.id)}
+                                    >
+                                        <div
+                                            className="w-full h-full rounded-lg flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all"
+                                            style={{ background: profColor + '10', border: `1px dashed ${profColor}50` }}
+                                        >
+                                            <span className="material-symbols-outlined text-sm" style={{ color: profColor }}>add</span>
+                                            <span className="text-[11px] font-semibold" style={{ color: profColor }}>Agendar</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             return (
                                 <div
                                     key={prof.id}
-                                    className="flex-1 min-w-0 p-1.5 border-r border-outline-variant/20 last:border-r-0 flex flex-wrap gap-1 content-start"
-                                    style={{ backgroundColor: !isWorking ? 'rgba(248,248,248,0.6)' : undefined }}
+                                    className="flex-1 min-w-0 border-r border-outline-variant/10 last:border-r-0 p-1.5 flex flex-col gap-1 content-start"
+                                    style={{ background: '#ffffff' }}
                                 >
-                                    {!isWorking ? (
-                                        <div className="w-full min-h-[60px] flex items-center justify-center gap-1.5">
-                                            <span className="material-symbols-outlined text-sm text-outline/30">block</span>
-                                            <span className="text-xs text-outline/40 font-medium">Indisponível</span>
-                                        </div>
-                                    ) : apps.length === 0 ? (
-                                        <div
-                                            onClick={() => onSlotClick(selectedDate, `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, prof.id)}
-                                            className="w-full min-h-[60px] bg-surface-container-low/20 border border-dashed border-outline-variant/30 rounded-lg flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
-                                        >
-                                            <span className="material-symbols-outlined text-outline/20 group-hover:text-primary transition-colors text-sm">add</span>
-                                        </div>
-                                    ) : (
-                                        apps.map(app => {
-                                            const specColor = app.specialty?.color || '#6366f1';
-                                            const isCanceled = app.status === 'cancelado';
-                                            const durationMin = (new Date(app.end_time) - new Date(app.start_time)) / 60000;
-                                            const cardHeight = Math.max(SLOT_HEIGHT - 4, (durationMin / slotInterval) * SLOT_HEIGHT - 4);
-                                            const { label: stLabel, bg: stBg, text: stText } = statusStyle(app.status);
-                                            return (
-                                                <div
-                                                    key={app.id}
-                                                    className={`flex-1 min-w-[100px] border border-l-4 rounded-lg flex flex-col shadow-sm group overflow-hidden ${isCanceled ? 'opacity-50 grayscale' : ''}`}
-                                                    style={{
-                                                        minHeight: cardHeight,
-                                                        backgroundColor: specColor + '18',
-                                                        borderColor: specColor + '40',
-                                                        borderLeftColor: specColor,
-                                                        color: specColor,
-                                                    }}
-                                                >
-                                                    <div className="flex-1 p-2 flex flex-col gap-0.5">
-                                                        <div className="flex items-start justify-between gap-1">
-                                                            <span className="text-xs font-bold text-on-surface truncate leading-tight">{app.patient.name}</span>
-                                                            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                                                <button onClick={() => onEditAppointment(app)} className="p-0.5 hover:bg-black/5 rounded">
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>edit</span>
-                                                                </button>
-                                                                <button onClick={() => onDeleteAppointment(app)} className="p-0.5 hover:bg-black/5 rounded text-red-500">
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>delete</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[10px] font-medium opacity-60">
-                                                            {format(parseISO(app.start_time), 'HH:mm')}–{format(parseISO(app.end_time), 'HH:mm')}
-                                                        </span>
-                                                        {app.specialty?.name && (
-                                                            <span className="text-[10px] font-bold uppercase tracking-wide opacity-70 truncate">{app.specialty.name}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-center ${stBg} ${stText}`}>
-                                                        {stLabel}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
+                                    {apps.map(app => {
+                                        const specColor = app.specialty?.color || '#6366f1';
+                                        const isCanceled = app.status === 'cancelado';
+
+                                        return (
+                                            <AppointmentCard
+                                                key={app.id}
+                                                app={app}
+                                                specColor={specColor}
+                                                isCanceled={isCanceled}
+                                                cardHeight={SLOT_HEIGHT - 6}
+                                                onEdit={() => onEditAppointment(app)}
+                                                onDelete={() => onDeleteAppointment(app)}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             );
                         })}
@@ -492,10 +654,14 @@ export default function Agenda({ professionals, patients, specialties, packages,
 
             <section className="flex items-center justify-between gap-4 mb-4">
                 {/* Data + seletor */}
-                <div className="flex items-center gap-3">
-                    <button onClick={handleGoToToday} className="text-xs font-bold text-primary border border-primary/30 hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={handleGoToToday}
+                        className="text-[12px] font-black text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                    >
                         Hoje
                     </button>
+                    <div className="w-px h-5 bg-gray-200" />
                     <div className="relative">
                         <input
                             ref={dateInputRef}
@@ -504,36 +670,46 @@ export default function Agenda({ professionals, patients, specialties, packages,
                             onChange={(e) => handleDateSelect(parseISO(e.target.value))}
                             className="absolute inset-0 opacity-0 pointer-events-none"
                         />
-                        <button onClick={handleOpenPicker} className="flex items-center gap-2 text-lg font-bold text-on-surface hover:text-primary transition-colors capitalize">
+                        <button onClick={handleOpenPicker} className="flex items-center gap-1.5 text-base font-black text-gray-800 hover:text-indigo-600 transition-colors capitalize">
                             {format(parseISO(selectedDate), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                            <span className="material-symbols-outlined text-base text-outline">expand_more</span>
+                            <span className="material-symbols-outlined text-sm text-gray-400">expand_more</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Direita: toggle Geral/Todos/Semana + Novo Agendamento */}
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center border border-outline-variant/40 rounded-xl overflow-hidden bg-surface-container-lowest">
+                {/* Direita: toggle views + Novo Agendamento */}
+                <div className="flex items-center gap-2.5">
+                    {/* View toggle */}
+                    <div className="flex items-center rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm">
                         {[
                             { label: 'Mês',    icon: 'calendar_month', action: handleGeralMode, active: geralMode },
                             { label: 'Dia',    icon: 'group',          action: () => { setGeralMode(false); handleProfessionalSelect('all'); }, active: !geralMode && isAllMode },
-                            { label: 'Semana', icon: null,             action: () => { setGeralMode(false); if (selectedProfessionalId === 'all' || !selectedProfessionalId) handleProfessionalSelect(professionals[0]?.id ?? 'all'); }, active: !geralMode && !isAllMode },
+                            { label: 'Semana', icon: 'person',         action: () => { setGeralMode(false); if (selectedProfessionalId === 'all' || !selectedProfessionalId) handleProfessionalSelect(professionals[0]?.id ?? 'all'); }, active: !geralMode && !isAllMode },
                         ].map(({ label, icon, action, active }) => (
                             <button
                                 key={label}
                                 onClick={action}
-                                className={`px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 ${active ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container'}`}
+                                className="px-3.5 py-2 text-[12px] font-bold transition-colors flex items-center gap-1.5"
+                                style={active
+                                    ? { background: '#6366f1', color: '#ffffff' }
+                                    : { color: '#6b7280', background: 'transparent' }
+                                }
                             >
-                                {icon && <span className="material-symbols-outlined text-base">{icon}</span>}
+                                <span className="material-symbols-outlined text-sm">{icon}</span>
                                 {label}
                             </button>
                         ))}
                     </div>
 
+                    {/* Novo agendamento */}
                     <button
                         onClick={() => setShowModal(true)}
                         disabled={geralMode}
-                        className={`px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md text-sm ${geralMode ? 'bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed shadow-none' : 'bg-primary text-on-primary hover:opacity-90 shadow-primary/10'}`}
+                        className="px-4 py-2 rounded-xl font-black flex items-center gap-1.5 transition-all text-[13px]"
+                        style={geralMode
+                            ? { background: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }
+                            : { background: '#6366f1', color: '#fff', boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }
+                        }
                     >
                         <span className="material-symbols-outlined text-base">add</span>
                         Novo Agendamento
@@ -542,29 +718,34 @@ export default function Agenda({ professionals, patients, specialties, packages,
             </section>
 
             {/* Horizontal Date Selector */}
-            <section className={`bg-surface-container-lowest rounded-2xl p-2 border border-outline-variant/30 mt-4 relative ${geralMode ? 'hidden' : ''}`}>
-                <div className="flex items-center gap-2">
+            <section className={`rounded-2xl p-2 border border-outline-variant/20 mt-4 relative ${geralMode ? 'hidden' : ''}`} style={{ background: '#ffffff' }}>
+                <div className="flex items-center gap-1">
                     <button
                         onClick={handlePrevWeek}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:bg-surface-container hover:text-primary transition-all shrink-0"
+                        className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all shrink-0"
                         title="Semana Anterior"
                     >
-                        <span className="material-symbols-outlined">chevron_left</span>
+                        <span className="material-symbols-outlined text-lg">chevron_left</span>
                     </button>
 
                     <div className="flex-1 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-1">
                         {weekDays.map((day) => {
                             const active = isSameDay(day, parseISO(selectedDate));
+                            const isToday = isSameDay(day, new Date());
                             return (
                                 <button
                                     key={day.toString()}
                                     onClick={() => handleDateSelect(day)}
-                                    className={`flex-1 min-w-[70px] flex flex-col items-center py-3 px-2 rounded-xl transition-all ${active ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-105 z-10' : 'text-on-surface-variant hover:bg-surface-container'}`}
+                                    className={`flex-1 min-w-[64px] flex flex-col items-center py-2.5 px-2 rounded-xl transition-all relative ${active ? 'shadow-md scale-105 z-10' : 'hover:bg-gray-50'}`}
+                                    style={active ? { background: '#6366f1', color: '#fff' } : { color: '#6b7280' }}
                                 >
-                                    <span className="text-[10px] font-bold uppercase tracking-wider mb-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-80">
                                         {format(day, 'EEE', { locale: ptBR })}
                                     </span>
-                                    <span className="text-lg font-extrabold">{format(day, 'dd')}</span>
+                                    <span className="text-xl font-black tabular-nums">{format(day, 'dd')}</span>
+                                    {isToday && !active && (
+                                        <span className="absolute bottom-1.5 w-1 h-1 rounded-full bg-indigo-400" />
+                                    )}
                                 </button>
                             );
                         })}
@@ -572,38 +753,47 @@ export default function Agenda({ professionals, patients, specialties, packages,
 
                     <button
                         onClick={handleNextWeek}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl text-outline hover:bg-surface-container hover:text-primary transition-all shrink-0"
+                        className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all shrink-0"
                         title="Próxima Semana"
                     >
-                        <span className="material-symbols-outlined">chevron_right</span>
+                        <span className="material-symbols-outlined text-lg">chevron_right</span>
                     </button>
                 </div>
             </section>
 
             {/* Professional Filters */}
-            <section className="bg-surface-container-lowest p-5 rounded-2xl flex flex-col gap-4 border border-outline-variant/30 mt-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <label className="text-xs font-bold text-primary tracking-widest uppercase">Selecionar Profissional</label>
-                    <div className="flex items-center gap-3"></div>
-                </div>
-                <div className="flex flex-wrap gap-4">
-                    {professionals.map(p => (
-                        <label 
-                            key={p.id}
-                            onClick={() => handleProfessionalSelect(p.id)}
-                            className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${selectedProfessionalId == p.id ? 'bg-primary text-on-primary border-primary shadow-md' : 'bg-surface-container-low hover:bg-surface-container border-transparent'}`}
-                        >
-                            <div className="w-8 h-8 rounded-full bg-primary-container text-primary flex items-center justify-center font-bold text-xs" style={{ backgroundColor: p.color + '33', color: p.color }}>
-                                {p.name.charAt(0)}
-                            </div>
-                            <span className={`text-sm font-bold ${selectedProfessionalId == p.id ? 'text-on-primary' : 'text-on-surface'}`}>
-                                {p.nickname || p.name}
-                            </span>
-                            {selectedProfessionalId == p.id && (
-                                <span className="ml-1 material-symbols-outlined text-lg">check_circle</span>
-                            )}
-                        </label>
-                    ))}
+            <section className="p-4 rounded-2xl flex flex-col gap-3 mt-4 border border-outline-variant/20" style={{ background: '#ffffff' }}>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Profissional</span>
+                <div className="flex flex-wrap gap-2">
+                    {professionals.map(p => {
+                        const isActive = selectedProfessionalId == p.id;
+                        const color = p.color || '#6366f1';
+                        return (
+                            <button
+                                key={p.id}
+                                onClick={() => handleProfessionalSelect(p.id)}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all border font-semibold text-sm"
+                                style={isActive
+                                    ? { background: color, color: '#fff', border: `1.5px solid ${color}`, boxShadow: `0 4px 14px ${color}40` }
+                                    : { background: color + '0d', color: '#374151', border: `1.5px solid ${color}25` }
+                                }
+                            >
+                                <div
+                                    className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0"
+                                    style={isActive
+                                        ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
+                                        : { background: color + '25', color }
+                                    }
+                                >
+                                    {p.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span>{p.nickname || p.name}</span>
+                                {isActive && (
+                                    <span className="material-symbols-outlined text-base opacity-80">check</span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </section>
 
@@ -690,7 +880,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
 
                             return (
                             <div key={hourObj.label} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-x-px bg-outline-variant/30 border-x border-b border-outline-variant/30 last:rounded-b-2xl overflow-hidden">
-                                <div className="bg-surface-container-low flex flex-col" style={{ minHeight: slotMinHeight }}>
+                                <div className="bg-surface-container-low flex flex-col" style={{ height: slotMinHeight }}>
                                     {Array.from({ length: slotInterval / 10 }).map((_, i) => (
                                         <div key={i} className="flex-1 flex items-start justify-end pr-2 pt-1 relative">
                                             {i === 0 ? (
@@ -711,7 +901,7 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                         <div
                                             onClick={() => openNewWithSlot(selectedDate, hourObj.label, selectedProfessionalId)}
                                             className="flex-1 bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-xl flex items-center justify-center group cursor-pointer hover:bg-surface-container-low transition-colors"
-                                            style={{ minHeight: slotMinHeight - 8 }}
+                                            style={{ height: slotMinHeight - 8 }}
                                         >
                                             <span className="material-symbols-outlined text-outline/30 group-hover:text-primary transition-colors">add</span>
                                         </div>
@@ -719,59 +909,20 @@ export default function Agenda({ professionals, patients, specialties, packages,
                                         hourObj.appointments.map(app => {
                                             const specColor = app.specialty?.color || '#6366f1';
                                             const isCanceled = app.status === 'cancelado';
-                                            const durationMin = (new Date(app.end_time) - new Date(app.start_time)) / 60000;
-                                            const cardHeight = Math.max(slotMinHeight - 8, (durationMin / slotInterval) * slotMinHeight - 8);
-
                                             return (
-                                                <div
+                                                <AppointmentCard
                                                     key={app.id}
-                                                    className={`min-w-[250px] flex-1 border border-l-4 rounded-xl p-3 flex flex-col justify-between shadow-sm relative group ${isCanceled ? 'opacity-50 grayscale' : ''}`}
-                                                    style={{
-                                                        minHeight: cardHeight,
-                                                        backgroundColor: specColor + '18',
-                                                        borderColor: specColor + '40',
-                                                        borderLeftColor: specColor,
-                                                        color: specColor,
+                                                    app={app}
+                                                    specColor={specColor}
+                                                    isCanceled={isCanceled}
+                                                    cardHeight={slotMinHeight - 8}
+                                                    onEdit={() => { setSelectedAppointment(app); setShowModal(true); }}
+                                                    onDelete={() => {
+                                                        if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+                                                            router.delete(route('appointments.destroy', app.id));
+                                                        }
                                                     }}
-                                                >
-                                                    <div>
-                                                        <div className="flex items-start justify-between mb-1">
-                                                            <h3 className="font-bold text-sm" style={{ color: specColor }}>{app.patient.name}</h3>
-                                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedAppointment(app);
-                                                                        setShowModal(true);
-                                                                    }}
-                                                                    className="p-1 hover:bg-black/5 rounded text-inherit"
-                                                                    title="Editar Agendamento"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-xs">edit</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (confirm('Tem certeza que deseja excluir este agendamento?')) {
-                                                                            router.delete(route('appointments.destroy', app.id));
-                                                                        }
-                                                                    }}
-                                                                    className="p-1 hover:bg-black/5 rounded text-red-500"
-                                                                    title="Excluir Agendamento"
-                                                                >
-                                                                    <span className="material-symbols-outlined text-xs">delete</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: specColor + '30', color: specColor }}>
-                                                            {format(parseISO(app.start_time), 'HH:mm')} - {format(parseISO(app.end_time), 'HH:mm')}
-                                                        </span>
-                                                    </div>
-                                                    {app.specialty?.name && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 mt-1 block">{app.specialty.name}</span>
-                                                    )}
-                                                    <div className={`absolute bottom-0 left-0 right-0 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-center rounded-b-xl ${statusStyle(app.status).bg} ${statusStyle(app.status).text}`}>
-                                                        {statusStyle(app.status).label}
-                                                    </div>
-                                                </div>
+                                                />
                                             );
                                         })
                                     )}

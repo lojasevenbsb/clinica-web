@@ -337,6 +337,17 @@ class AgendaController extends Controller
         return redirect()->back()->with('success', $successMessage);
     }
 
+    public function updateStatus(Request $request, Appointment $appointment)
+    {
+        $request->validate([
+            'status' => 'required|string|in:pendente,confirmado,cancelado,atendido',
+        ]);
+
+        $appointment->update(['status' => $request->status]);
+
+        return back();
+    }
+
     public function update(Request $request, Appointment $appointment)
     {
         $validated = $request->validate([

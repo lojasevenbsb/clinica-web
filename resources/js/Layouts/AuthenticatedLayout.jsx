@@ -1,6 +1,7 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { useAccessibility } from '@/hooks/useAccessibility';
 
 export default function AuthenticatedLayout({ header, children }) {
     const { url } = usePage();
@@ -10,9 +11,11 @@ export default function AuthenticatedLayout({ header, children }) {
     const isPilates = url.startsWith('/pilates');
     const [pilatesOpen, setPilatesOpen] = useState(isPilates);
 
+    const { fontKey, dark, toggleTheme, cycleFont, FONT_SIZES } = useAccessibility();
+
 
     return (
-        <div className="bg-surface text-on-surface selection:bg-primary-fixed min-h-screen">
+        <div className="bg-surface dark:bg-stone-950 text-on-surface dark:text-stone-100 selection:bg-primary-fixed min-h-screen transition-colors duration-300">
             <div className="flex min-h-screen">
                 {/* Navigation Drawer (Sidebar) */}
                 <aside className="hidden md:flex flex-col w-64 p-4 bg-white dark:bg-stone-900 rounded-r-2xl h-screen shadow-sm space-y-2 sticky top-0 overflow-y-auto">
@@ -141,24 +144,73 @@ export default function AuthenticatedLayout({ header, children }) {
 
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden min-h-screen">
                     {/* Top App Bar */}
-                    <header className="w-full top-0 px-6 py-4 bg-[#f8faf9] dark:bg-stone-950 flex justify-between items-center z-10 shadow-none sticky">
+                    <header className="w-full top-0 px-6 py-3 bg-[#f8faf9] dark:bg-stone-950 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center z-10 shadow-none sticky">
                         <div className="flex items-center gap-4">
                             <h2 className="font-manrope headline-md tracking-tight text-xl font-bold text-[#466250] dark:text-[#789682]">
                                 Serenidade Sistêmica
                             </h2>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <button className="p-2 text-[#466250] dark:text-[#789682] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors duration-200 rounded-full">
-                                <span className="material-symbols-outlined">notifications</span>
+
+                        <div className="flex items-center gap-2">
+
+                            {/* ── Tamanho de fonte ── */}
+                            <div
+                                className="flex items-center rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 shadow-sm"
+                                title="Tamanho da fonte"
+                                role="group"
+                                aria-label="Tamanho da fonte"
+                            >
+                                {FONT_SIZES.map((f, i) => (
+                                    <button
+                                        key={f.key}
+                                        onClick={() => cycleFont(f.key)}
+                                        title={f.title}
+                                        aria-pressed={fontKey === f.key}
+                                        className={`px-3 py-1.5 font-black transition-colors border-r border-stone-100 dark:border-stone-700 last:border-r-0
+                                            ${fontKey === f.key
+                                                ? 'bg-[#466250] text-white'
+                                                : 'text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+                                            }`}
+                                        style={{ fontSize: f.px * 0.75 + 'px' }}
+                                    >
+                                        {f.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* ── Claro / Escuro ── */}
+                            <button
+                                onClick={toggleTheme}
+                                title={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+                                aria-label={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
+                                className="w-9 h-9 flex items-center justify-center rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-amber-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors shadow-sm"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">
+                                    {dark ? 'light_mode' : 'dark_mode'}
+                                </span>
                             </button>
-                            <div className="md:hidden w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden">
+
+                            {/* Separador */}
+                            <div className="w-px h-5 bg-stone-200 dark:bg-stone-700 mx-1" />
+
+                            {/* Notificações */}
+                            <button
+                                className="w-9 h-9 flex items-center justify-center rounded-xl text-[#466250] dark:text-[#789682] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors duration-200"
+                                title="Notificações"
+                                aria-label="Notificações"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">notifications</span>
+                            </button>
+
+                            {/* Avatar mobile */}
+                            <div className="md:hidden w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden">
                                 <img alt="Avatar" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsVmYXN4xThc0nhAm6jnf2LhOajK5TZxW7McYP8M_HjUKTjYjL5S_HVYaOtTQyJJBq8IUaZAaGeQhnbw9W2xZku7jwR0MPOmc3htGL1_RhZJG_xbruPHfotD0gplKMz9kE-fPr8YIjVQlP3ZS9j3DwgutKP94K1Ht7IVy1IYkPSFRSFpcW_UKE6ui4yoAYmFKzlOTyO_ulHCmJesmJe1unPrQL5-xVnUlFXrVFs3IbStRrK4-W4D719y3aWtmviiEmNcll8NMJl9aW" />
                             </div>
                         </div>
                     </header>
 
                     {/* Main Content Canvas */}
-                    <main className="flex-1 overflow-x-hidden p-6 md:p-10 space-y-12 pb-32 md:pb-12">
+                    <main className="flex-1 overflow-x-hidden p-6 md:p-10 space-y-12 pb-32 md:pb-12 dark:bg-stone-950 transition-colors duration-300">
                         {children}
                     </main>
                 </div>

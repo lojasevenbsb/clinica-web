@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/pilates/planos/{package}', [PilatesPackageController::class, 'destroy'])->name('pilates.planos.destroy');
     Route::post('/appointments', [AgendaController::class, 'store'])->name('appointments.store');
     Route::patch('/appointments/{appointment}', [AgendaController::class, 'update'])->name('appointments.update');
+    Route::patch('/appointments/{appointment}/status', [AgendaController::class, 'updateStatus'])->name('appointments.updateStatus');
     Route::delete('/appointments/{appointment}', [AgendaController::class, 'destroy'])->name('appointments.destroy');
 
     Route::resource('professionals', ProfessionalController::class);
